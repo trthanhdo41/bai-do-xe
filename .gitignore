@@ -21,6 +21,8 @@
 # production
 /build
 /public/uploads
+__pycache__/
+*.pyc
 
 # misc
 .DS_Store
