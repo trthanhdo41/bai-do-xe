@@ -273,8 +273,20 @@ th {
   font-size: 14px;
 }
 
+.form-info {
+  color: var(--primary-strong);
+  font-size: 14px;
+}
+
 .full-button {
   width: 100%;
+}
+
+.link-button {
+  background: transparent;
+  color: var(--primary-strong);
+  min-height: 34px;
+  padding: 0;
 }
 
 .demo-accounts {
@@ -390,6 +402,19 @@ th {
   margin-bottom: 24px;
 }
 
+.system-log {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  display: flex;
+  gap: 8px;
+  margin-bottom: 18px;
+  min-height: 42px;
+  padding: 0 14px;
+}
+
 .app-header p,
 .panel-heading p {
   color: var(--muted);
@@ -422,6 +447,26 @@ th {
 
 .panel.wide {
   min-width: 0;
+}
+
+.action-row,
+.action-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.action-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.action-row button,
+.action-grid button {
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  color: var(--foreground);
 }
 
 .panel-heading {
@@ -506,6 +551,45 @@ th {
   display: block;
   font-size: 28px;
   margin-bottom: 10px;
+}
+
+.module-list {
+  display: grid;
+  gap: 10px;
+}
+
+.module-item {
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  display: flex;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 12px;
+}
+
+.module-item svg {
+  color: var(--success);
+  flex: 0 0 auto;
+}
+
+.upload-box {
+  align-items: center;
+  border: 1px dashed #b8c2cc;
+  border-radius: 8px;
+  color: var(--muted);
+  display: grid;
+  gap: 14px;
+  justify-items: center;
+  min-height: 220px;
+  padding: 24px;
+  text-align: center;
+}
+
+.upload-box button {
+  background: var(--primary);
+  color: #fff;
 }
 
 .chart-bars {
@@ -609,6 +693,10 @@ th {
   .workspace,
   .public-section {
     padding: 18px 16px;
+  }
+
+  .action-grid {
+    grid-template-columns: 1fr;
   }
 
   .app-header {
