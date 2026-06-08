@@ -35,6 +35,14 @@ def preprocess_variants(image: Image.Image) -> list[Image.Image]:
     return [resized, sharp, threshold, inverted]
 
 
+def average_hash(image: Image.Image) -> str:
+    gray = ImageOps.grayscale(image).resize((8, 8))
+    pixels = list(gray.getdata())
+    avg = sum(pixels) / len(pixels)
+    bits = ["1" if pixel >= avg else "0" for pixel in pixels]
+    return "".join(f"{int(''.join(bits[index:index + 4]), 2):x}" for index in range(0, 64, 4))
+
+
 def extract_plate(raw_text: str) -> str:
     text = raw_text.upper().replace(" ", "")
     text = text.replace("O", "0").replace("I", "1")
@@ -86,6 +94,7 @@ def detect_plate(image_path: Path) -> dict:
         "confidence": best_confidence,
         "rawText": best_text,
         "vehicleType": "Không xác định",
+        "imageHash": average_hash(image),
     }
 
 

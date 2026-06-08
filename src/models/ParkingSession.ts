@@ -17,6 +17,9 @@ export type ParkingSessionDocument = {
   entryConfidence?: number;
   exitConfidence?: number;
   aiRawText?: string;
+  entryImageHash?: string;
+  exitImageHash?: string;
+  vehicleMatchScore?: number;
   matchStatus?: "Chưa checkout" | "Khớp" | "Không khớp";
   createdBy?: mongoose.Types.ObjectId;
   createdAt: Date;
@@ -40,6 +43,9 @@ const parkingSessionSchema = new Schema<ParkingSessionDocument>(
     entryConfidence: { type: Number },
     exitConfidence: { type: Number },
     aiRawText: { type: String },
+    entryImageHash: { type: String },
+    exitImageHash: { type: String },
+    vehicleMatchScore: { type: Number },
     matchStatus: { type: String, enum: ["Chưa checkout", "Khớp", "Không khớp"], default: "Chưa checkout" },
     createdBy: { type: Schema.Types.ObjectId, ref: "User" },
   },

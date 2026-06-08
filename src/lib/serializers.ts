@@ -30,6 +30,7 @@ export function serializeParkingSession(session: ParkingSessionDocument) {
     exitDetectedPlate: session.exitDetectedPlate,
     entryConfidence: session.entryConfidence,
     exitConfidence: session.exitConfidence,
+    vehicleMatchScore: session.vehicleMatchScore,
     matchStatus: session.matchStatus,
   };
 }

@@ -1,7 +1,7 @@
 import { detectVehicleImage } from "@/lib/ai";
 import { readSession } from "@/lib/auth";
 import { connectDb } from "@/lib/db";
-import { platesMatch } from "@/lib/plate";
+import { imageHashSimilarity, platesMatch } from "@/lib/plate";
 import { serializeParkingSession } from "@/lib/serializers";
 import { saveUploadedImage } from "@/lib/upload";
 import { ParkingSession } from "@/models/ParkingSession";
@@ -51,6 +51,7 @@ export async function POST(request: Request) {
       entryImageUrl: imageUrl,
       entryDetectedPlate: detection.plate,
       entryConfidence: detection.confidence,
+      entryImageHash: detection.imageHash,
       aiRawText: detection.rawText,
       createdBy: user.id,
     });
@@ -66,11 +67,14 @@ export async function POST(request: Request) {
     }
 
     const matched = platesMatch(session.entryDetectedPlate || session.plate, detection.plate);
+    const vehicleScore = imageHashSimilarity(session.entryImageHash, detection.imageHash);
     const imageUrl = await saveUploadedImage(image, "exit");
 
     session.exitImageUrl = imageUrl;
     session.exitDetectedPlate = detection.plate;
     session.exitConfidence = detection.confidence;
+    session.exitImageHash = detection.imageHash;
+    session.vehicleMatchScore = vehicleScore;
     session.matchStatus = matched ? "Khớp" : "Không khớp";
 
     if (matched) {

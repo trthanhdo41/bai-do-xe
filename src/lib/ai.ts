@@ -3,6 +3,7 @@ export type AiDetectionResult = {
   confidence: number;
   rawText: string;
   vehicleType: string;
+  imageHash: string;
 };
 
 export async function detectVehicleImage(file: File): Promise<AiDetectionResult> {

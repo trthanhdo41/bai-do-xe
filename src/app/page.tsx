@@ -80,6 +80,7 @@ type ParkingSession = {
   exitDetectedPlate?: string;
   entryConfidence?: number;
   exitConfidence?: number;
+  vehicleMatchScore?: number;
   matchStatus?: "Chưa checkout" | "Khớp" | "Không khớp";
 };
 
@@ -149,6 +150,7 @@ const initialSessions: ParkingSession[] = [
     exitDetectedPlate: "29B134567",
     entryConfidence: 93,
     exitConfidence: 91,
+    vehicleMatchScore: 100,
     matchStatus: "Khớp",
   },
   {
@@ -753,6 +755,7 @@ export default function Home() {
                       <th>AI biển vào</th>
                       <th>Trạng thái</th>
                       <th>Match</th>
+                      <th>Điểm ảnh xe</th>
                       <th>Phí</th>
                       <th></th>
                     </tr>
@@ -778,6 +781,7 @@ export default function Home() {
                             {session.matchStatus || "Chưa checkout"}
                           </span>
                         </td>
+                        <td>{session.vehicleMatchScore ? `${session.vehicleMatchScore}%` : "Chưa có"}</td>
                         <td>{session.fee ? currency.format(session.fee) : "Chưa tính"}</td>
                         <td>
                           {session.status === "Đang gửi" && currentUser.role !== "customer" ? (
