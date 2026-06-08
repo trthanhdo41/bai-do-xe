@@ -1,15 +1,15 @@
 :root {
-  --background: #f4f7f6;
-  --foreground: #16211f;
-  --muted: #61706c;
-  --line: #dce5e1;
+  --background: #f6f7f8;
+  --foreground: #1f2933;
+  --muted: #667085;
+  --line: #dde2e7;
   --panel: #ffffff;
-  --primary: #116a5b;
-  --primary-strong: #0a4f43;
-  --accent: #d9912b;
-  --success: #168455;
-  --warning: #b56d16;
-  --sidebar: #0e2f2c;
+  --primary: #2563eb;
+  --primary-strong: #1d4ed8;
+  --accent: #475467;
+  --success: #16803c;
+  --warning: #b25e09;
+  --sidebar: #1f2937;
 }
 
 html {
@@ -105,14 +105,11 @@ th {
 }
 
 .hero {
-  background:
-    linear-gradient(90deg, rgba(11, 47, 44, 0.94), rgba(17, 106, 91, 0.76)),
-    url("https://images.unsplash.com/photo-1506521781263-d8422e82f27a?auto=format&fit=crop&w=1800&q=80");
-  background-position: center;
-  background-size: cover;
-  color: #fff;
-  min-height: 78vh;
-  padding: 24px min(6vw, 72px) 48px;
+  background: #ffffff;
+  border-bottom: 1px solid var(--line);
+  color: var(--foreground);
+  min-height: auto;
+  padding: 20px min(5vw, 56px) 40px;
 }
 
 .topbar,
@@ -148,18 +145,18 @@ th {
 .hero-grid {
   align-items: center;
   display: grid;
-  gap: 48px;
-  grid-template-columns: minmax(0, 1.1fr) minmax(340px, 430px);
-  margin-top: 82px;
+  gap: 32px;
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 420px);
+  margin-top: 46px;
 }
 
 .hero-copy {
-  max-width: 720px;
+  max-width: 680px;
 }
 
 .eyebrow,
 .section-kicker {
-  color: #cceee5;
+  color: var(--muted);
   display: inline-flex;
   font-size: 13px;
   font-weight: 800;
@@ -169,21 +166,51 @@ th {
 }
 
 .section-kicker {
-  color: var(--primary);
+  color: var(--accent);
 }
 
 .hero h1 {
-  font-size: clamp(48px, 8vw, 96px);
+  font-size: clamp(40px, 6vw, 72px);
   letter-spacing: 0;
-  line-height: 0.94;
+  line-height: 1;
 }
 
 .hero p {
-  color: #e3f3ef;
-  font-size: 19px;
-  line-height: 1.65;
-  margin-top: 24px;
+  color: var(--muted);
+  font-size: 17px;
+  line-height: 1.6;
+  margin-top: 18px;
   max-width: 680px;
+}
+
+.status-strip {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 24px;
+  max-width: 560px;
+}
+
+.status-strip div {
+  border-right: 1px solid var(--line);
+  padding: 14px 16px;
+}
+
+.status-strip div:last-child {
+  border-right: 0;
+}
+
+.status-strip span {
+  color: var(--muted);
+  display: block;
+  font-size: 13px;
+}
+
+.status-strip strong {
+  display: block;
+  font-size: 20px;
+  margin-top: 4px;
 }
 
 .hero-actions {
@@ -194,9 +221,9 @@ th {
 }
 
 .secondary-button {
-  background: rgba(255, 255, 255, 0.14);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  color: #fff;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  color: var(--foreground);
 }
 
 .auth-panel,
@@ -205,7 +232,7 @@ th {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 8px;
-  box-shadow: 0 18px 44px rgba(22, 33, 31, 0.08);
+  box-shadow: none;
   color: var(--foreground);
 }
 
@@ -221,7 +248,7 @@ th {
 }
 
 .segmented {
-  background: #eef4f2;
+  background: #f2f4f7;
   border-radius: 8px;
   display: grid;
   gap: 4px;
@@ -238,7 +265,7 @@ th {
 .segmented button.active {
   background: #fff;
   color: var(--foreground);
-  box-shadow: 0 4px 12px rgba(22, 33, 31, 0.08);
+  box-shadow: inset 0 0 0 1px var(--line);
 }
 
 .form-error {
@@ -262,7 +289,7 @@ th {
 }
 
 .demo-accounts code {
-  background: #f3f7f5;
+  background: #f6f7f8;
   border-radius: 6px;
   color: var(--primary-strong);
   padding: 8px;
@@ -298,7 +325,7 @@ th {
 
 .metric-icon {
   align-items: center;
-  background: #e8f5f1;
+  background: #eef4ff;
   border-radius: 8px;
   color: var(--primary);
   display: flex;
@@ -343,14 +370,14 @@ th {
 
 .sidebar button {
   background: transparent;
-  color: #d6e8e4;
+  color: #d0d5dd;
   justify-content: flex-start;
   width: 100%;
 }
 
 .sidebar button.active,
 .sidebar button:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.1);
   color: #fff;
 }
 
@@ -375,7 +402,7 @@ th {
 }
 
 .logout-button {
-  background: #183d38;
+  background: #344054;
 }
 
 .dashboard,
@@ -428,7 +455,7 @@ th {
 }
 
 .badge {
-  background: #eef4f2;
+  background: #f2f4f7;
   border-radius: 999px;
   color: var(--primary-strong);
   display: inline-flex;
@@ -499,8 +526,8 @@ th {
 
 .bar-item div {
   align-self: end;
-  background: linear-gradient(180deg, var(--primary), var(--accent));
-  border-radius: 8px 8px 0 0;
+  background: var(--primary);
+  border-radius: 4px 4px 0 0;
   min-height: 24px;
   width: 100%;
 }

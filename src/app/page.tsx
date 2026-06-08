@@ -16,7 +16,6 @@ import {
   ReceiptText,
   Search,
   Settings,
-  ShieldCheck,
   UserRound,
   UsersRound,
   Wallet,
@@ -254,15 +253,29 @@ export default function Home() {
 
           <div className="hero-grid">
             <div className="hero-copy">
-              <span className="eyebrow">MVP quản lý bãi đỗ xe thông minh</span>
+              <span className="eyebrow">Hệ thống quản lý bãi đỗ xe</span>
               <h1>Bãi Đỗ Xe</h1>
               <p>
-                Theo dõi chỗ trống, quản lý xe vào/ra, tính phí gửi xe và phân quyền vận hành cho
+                Theo dõi chỗ trống, ghi nhận xe vào/ra, tính phí gửi xe và phân quyền vận hành cho
                 quản trị viên, nhân viên, khách hàng.
               </p>
+              <div className="status-strip">
+                <div>
+                  <span>Đang gửi</span>
+                  <strong>42 xe</strong>
+                </div>
+                <div>
+                  <span>Còn trống</span>
+                  <strong>78 chỗ</strong>
+                </div>
+                <div>
+                  <span>Camera</span>
+                  <strong>06/06</strong>
+                </div>
+              </div>
               <div className="hero-actions">
                 <button onClick={() => setMode("login")} type="button">
-                  <ShieldCheck size={18} />
+                  <LogIn size={18} />
                   Dùng tài khoản demo
                 </button>
                 <button className="secondary-button" onClick={() => setMode("register")} type="button">
