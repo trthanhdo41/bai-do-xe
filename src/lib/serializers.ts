@@ -24,6 +24,13 @@ export function serializeParkingSession(session: ParkingSessionDocument) {
     slot: session.slot,
     status: session.status,
     fee: session.fee,
+    entryImageUrl: session.entryImageUrl,
+    exitImageUrl: session.exitImageUrl,
+    entryDetectedPlate: session.entryDetectedPlate,
+    exitDetectedPlate: session.exitDetectedPlate,
+    entryConfidence: session.entryConfidence,
+    exitConfidence: session.exitConfidence,
+    matchStatus: session.matchStatus,
   };
 }
 

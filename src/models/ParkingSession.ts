@@ -12,6 +12,12 @@ export type ParkingSessionDocument = {
   fee: number;
   entryImageUrl?: string;
   exitImageUrl?: string;
+  entryDetectedPlate?: string;
+  exitDetectedPlate?: string;
+  entryConfidence?: number;
+  exitConfidence?: number;
+  aiRawText?: string;
+  matchStatus?: "Chưa checkout" | "Khớp" | "Không khớp";
   createdBy?: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -29,6 +35,12 @@ const parkingSessionSchema = new Schema<ParkingSessionDocument>(
     fee: { type: Number, default: 0 },
     entryImageUrl: { type: String },
     exitImageUrl: { type: String },
+    entryDetectedPlate: { type: String },
+    exitDetectedPlate: { type: String },
+    entryConfidence: { type: Number },
+    exitConfidence: { type: Number },
+    aiRawText: { type: String },
+    matchStatus: { type: String, enum: ["Chưa checkout", "Khớp", "Không khớp"], default: "Chưa checkout" },
     createdBy: { type: Schema.Types.ObjectId, ref: "User" },
   },
   { timestamps: true },

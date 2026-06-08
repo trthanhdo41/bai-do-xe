@@ -74,6 +74,13 @@ type ParkingSession = {
   slot: string;
   status: "Đang gửi" | "Đã hoàn thành";
   fee: number;
+  entryImageUrl?: string;
+  exitImageUrl?: string;
+  entryDetectedPlate?: string;
+  exitDetectedPlate?: string;
+  entryConfidence?: number;
+  exitConfidence?: number;
+  matchStatus?: "Chưa checkout" | "Khớp" | "Không khớp";
 };
 
 type RegisteredVehicle = {
@@ -124,6 +131,9 @@ const initialSessions: ParkingSession[] = [
     slot: "A-12",
     status: "Đang gửi",
     fee: 0,
+    entryDetectedPlate: "30H67890",
+    entryConfidence: 96,
+    matchStatus: "Chưa checkout",
   },
   {
     id: "PX-1027",
@@ -135,6 +145,11 @@ const initialSessions: ParkingSession[] = [
     slot: "B-04",
     status: "Đã hoàn thành",
     fee: 18000,
+    entryDetectedPlate: "29B134567",
+    exitDetectedPlate: "29B134567",
+    entryConfidence: 93,
+    exitConfidence: 91,
+    matchStatus: "Khớp",
   },
   {
     id: "PX-1026",
@@ -145,6 +160,9 @@ const initialSessions: ParkingSession[] = [
     slot: "A-08",
     status: "Đang gửi",
     fee: 0,
+    entryDetectedPlate: "30F22211",
+    entryConfidence: 89,
+    matchStatus: "Chưa checkout",
   },
 ];
 
@@ -209,6 +227,7 @@ export default function Home() {
   const [authError, setAuthError] = useState("");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [actionLog, setActionLog] = useState("Sẵn sàng vận hành.");
+  const [exitSessionId, setExitSessionId] = useState("");
 
   useEffect(() => {
     async function loadSession() {
@@ -337,26 +356,65 @@ export default function Home() {
   async function createSession(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const plate = String(form.get("plate") ?? "").toUpperCase();
     const vehicleType = String(form.get("vehicleType") ?? "Ô tô") as ParkingSession["vehicleType"];
     const owner = String(form.get("owner") ?? "Khách vãng lai");
+    const image = form.get("entryImage");
+
+    if (!(image instanceof File) || !image.name) {
+      setActionLog("Vui lòng upload ảnh xe vào để nhận diện biển số.");
+      return;
+    }
 
     try {
-      const response = await fetch("/api/parking-sessions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plate, owner, vehicleType }),
-      });
+      const payload = new FormData();
+      payload.append("action", "entry");
+      payload.append("owner", owner);
+      payload.append("vehicleType", vehicleType);
+      payload.append("image", image);
+
+      const response = await fetch("/api/parking-sessions/upload", { method: "POST", body: payload });
       const data = await response.json();
       if (!response.ok) {
         setActionLog(data.message || "Không tạo được phiên đỗ xe.");
         return;
       }
       setSessions((items) => [data.session, ...items]);
-      setActionLog(`Đã ghi nhận xe ${plate} vào MongoDB.`);
+      setExitSessionId(data.session.id);
+      setActionLog(`Đã nhận diện biển ${data.detection.plate} và ghi nhận xe vào MongoDB.`);
       event.currentTarget.reset();
     } catch {
-      setActionLog("Không kết nối được API tạo phiên.");
+      setActionLog("Không kết nối được API nhận diện ảnh xe vào. Kiểm tra AI service Python.");
+    }
+  }
+
+  async function checkoutWithImage(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const sessionId = String(form.get("sessionId") ?? "");
+    const image = form.get("exitImage");
+
+    if (!sessionId || !(image instanceof File) || !image.name) {
+      setActionLog("Vui lòng chọn phiên và upload ảnh xe ra.");
+      return;
+    }
+
+    try {
+      const payload = new FormData();
+      payload.append("action", "exit");
+      payload.append("sessionId", sessionId);
+      payload.append("image", image);
+      const response = await fetch("/api/parking-sessions/upload", { method: "POST", body: payload });
+      const data = await response.json();
+      if (!response.ok) {
+        setActionLog(data.message || "Không checkout được bằng ảnh.");
+        return;
+      }
+
+      setSessions((items) => items.map((item) => (item.id === sessionId ? data.session : item)));
+      setActionLog(data.message);
+      event.currentTarget.reset();
+    } catch {
+      setActionLog("Không kết nối được API nhận diện ảnh xe ra. Kiểm tra AI service Python.");
     }
   }
 
@@ -641,15 +699,11 @@ export default function Home() {
                 <div className="panel-heading">
                   <div>
                     <p>Vận hành</p>
-                    <h2>Tạo phiên xe vào</h2>
+                    <h2>Xe vào bằng ảnh</h2>
                   </div>
                   <Camera size={22} />
                 </div>
                 <form className="stack-form" onSubmit={createSession}>
-                  <label>
-                    Biển số xe
-                    <input name="plate" placeholder="30H-123.45" required />
-                  </label>
                   <label>
                     Chủ xe
                     <input name="owner" placeholder="Tên khách hàng" required />
@@ -661,9 +715,13 @@ export default function Home() {
                       <option>Xe máy</option>
                     </select>
                   </label>
+                  <label>
+                    Ảnh xe vào
+                    <input accept="image/*" name="entryImage" required type="file" />
+                  </label>
                   <button className="full-button" type="submit">
-                    <Plus size={18} />
-                    Ghi nhận xe vào
+                    <Upload size={18} />
+                    Upload và nhận diện
                   </button>
                 </form>
               </div>
@@ -692,7 +750,9 @@ export default function Home() {
                       <th>Biển số</th>
                       <th>Chủ xe</th>
                       <th>Vị trí</th>
+                      <th>AI biển vào</th>
                       <th>Trạng thái</th>
+                      <th>Match</th>
                       <th>Phí</th>
                       <th></th>
                     </tr>
@@ -705,15 +765,24 @@ export default function Home() {
                         <td>{session.owner}</td>
                         <td>{session.slot}</td>
                         <td>
+                          {session.entryDetectedPlate || session.plate}
+                          {session.entryConfidence ? ` (${session.entryConfidence}%)` : ""}
+                        </td>
+                        <td>
                           <span className={session.status === "Đang gửi" ? "badge warning" : "badge success"}>
                             {session.status}
+                          </span>
+                        </td>
+                        <td>
+                          <span className={session.matchStatus === "Không khớp" ? "badge warning" : "badge"}>
+                            {session.matchStatus || "Chưa checkout"}
                           </span>
                         </td>
                         <td>{session.fee ? currency.format(session.fee) : "Chưa tính"}</td>
                         <td>
                           {session.status === "Đang gửi" && currentUser.role !== "customer" ? (
-                            <button className="small-button" onClick={() => completeSession(session.id)} type="button">
-                              Xe ra
+                            <button className="small-button" onClick={() => setExitSessionId(session.id)} type="button">
+                              Chọn checkout
                             </button>
                           ) : (
                             <ReceiptText size={18} />
@@ -725,6 +794,44 @@ export default function Home() {
                 </table>
               </div>
             </div>
+
+            {currentUser.role !== "customer" && (
+              <div className="panel">
+                <div className="panel-heading">
+                  <div>
+                    <p>Checkout</p>
+                    <h2>Xe ra bằng ảnh</h2>
+                  </div>
+                  <ScanLine size={22} />
+                </div>
+                <form className="stack-form" onSubmit={checkoutWithImage}>
+                  <label>
+                    Phiên đang gửi
+                    <select name="sessionId" onChange={(event) => setExitSessionId(event.target.value)} value={exitSessionId}>
+                      <option value="">Chọn phiên</option>
+                      {sessions
+                        .filter((session) => session.status === "Đang gửi")
+                        .map((session) => (
+                          <option key={session.id} value={session.id}>
+                            {session.plate} - {session.slot}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+                  <label>
+                    Ảnh xe ra
+                    <input accept="image/*" name="exitImage" required type="file" />
+                  </label>
+                  <button className="full-button" type="submit">
+                    <ScanLine size={18} />
+                    Upload và đối chiếu
+                  </button>
+                  <button className="link-button" onClick={() => exitSessionId && completeSession(exitSessionId)} type="button">
+                    Xác minh thủ công nếu ảnh lỗi
+                  </button>
+                </form>
+              </div>
+            )}
           </section>
         )}
 
