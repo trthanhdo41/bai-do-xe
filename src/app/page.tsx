@@ -34,7 +34,7 @@ import {
   Wallet,
   Wrench,
 } from "lucide-react";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
 type Role = "admin" | "staff" | "customer";
 type View =
@@ -55,10 +55,10 @@ type View =
   | "security";
 
 type DemoUser = {
-  id: number;
+  id: number | string;
   name: string;
   email: string;
-  password: string;
+  password?: string;
   role: Role;
   status: "Đang hoạt động" | "Đã khóa";
   wallet: number;
@@ -74,6 +74,14 @@ type ParkingSession = {
   slot: string;
   status: "Đang gửi" | "Đã hoàn thành";
   fee: number;
+};
+
+type RegisteredVehicle = {
+  id?: string;
+  plate: string;
+  owner: string;
+  type: "Ô tô" | "Xe máy" | string;
+  status: "Đã đăng ký" | "Cần duyệt" | "Blacklist" | string;
 };
 
 const demoUsers: DemoUser[] = [
@@ -140,7 +148,7 @@ const initialSessions: ParkingSession[] = [
   },
 ];
 
-const vehicles = [
+const initialVehicles: RegisteredVehicle[] = [
   { plate: "30H-678.90", owner: "Nguyễn Minh Anh", type: "Ô tô", status: "Đã đăng ký" },
   { plate: "29B1-345.67", owner: "Trần Hoàng Nam", type: "Xe máy", status: "Đã đăng ký" },
   { plate: "30F-222.11", owner: "Lê Thu Hà", type: "Ô tô", status: "Cần duyệt" },
@@ -190,19 +198,69 @@ const currency = new Intl.NumberFormat("vi-VN", {
   currency: "VND",
 });
 
-function calculateFee(vehicleType: ParkingSession["vehicleType"]) {
-  return vehicleType === "Ô tô" ? 35000 : 12000;
-}
-
 export default function Home() {
   const [mode, setMode] = useState<"login" | "register" | "forgot">("login");
   const [currentUser, setCurrentUser] = useState<DemoUser | null>(null);
   const [activeView, setActiveView] = useState<View>("overview");
   const [sessions, setSessions] = useState<ParkingSession[]>(initialSessions);
+  const [registeredVehicles, setRegisteredVehicles] = useState<RegisteredVehicle[]>(initialVehicles);
+  const [userList, setUserList] = useState<DemoUser[]>(demoUsers);
   const [searchText, setSearchText] = useState("");
   const [authError, setAuthError] = useState("");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [actionLog, setActionLog] = useState("Sẵn sàng vận hành.");
+
+  useEffect(() => {
+    async function loadSession() {
+      try {
+        const response = await fetch("/api/auth/me");
+        const data = await response.json();
+        if (data.user) {
+          setCurrentUser(data.user);
+          setActiveView(data.user.role === "customer" ? "profile" : "overview");
+        }
+      } catch {
+        setActionLog("Chưa kết nối được phiên đăng nhập.");
+      }
+    }
+
+    loadSession();
+  }, []);
+
+  useEffect(() => {
+    if (!currentUser) {
+      return;
+    }
+    const activeUser = currentUser;
+
+    async function loadOperationalData() {
+      try {
+        const [sessionResponse, vehicleResponse] = await Promise.all([
+          fetch("/api/parking-sessions"),
+          fetch("/api/vehicles"),
+        ]);
+        if (sessionResponse.ok) {
+          const data = await sessionResponse.json();
+          setSessions(data.sessions);
+        }
+        if (vehicleResponse.ok) {
+          const data = await vehicleResponse.json();
+          setRegisteredVehicles(data.vehicles);
+        }
+        if (activeUser.role === "admin") {
+          const userResponse = await fetch("/api/users");
+          if (userResponse.ok) {
+            const data = await userResponse.json();
+            setUserList(data.users);
+          }
+        }
+      } catch {
+        setActionLog("Không tải được dữ liệu vận hành từ MongoDB local.");
+      }
+    }
+
+    loadOperationalData();
+  }, [currentUser]);
 
   const stats = useMemo(() => {
     const active = sessions.filter((item) => item.status === "Đang gửi").length;
@@ -221,86 +279,104 @@ export default function Home() {
     return value.includes(searchText.toLowerCase());
   });
 
-  function handleLogin(event: FormEvent<HTMLFormElement>) {
+  async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const email = String(form.get("email") ?? "").trim();
     const password = String(form.get("password") ?? "");
 
-    // TODO: Thay mock auth này bằng API đăng nhập + JWT khi triển khai backend MongoDB.
-    const user = demoUsers.find((item) => item.email === email && item.password === password);
-    if (!user) {
-      setAuthError("Email hoặc mật khẩu không đúng.");
-      return;
-    }
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setAuthError(data.message || "Không đăng nhập được.");
+        return;
+      }
 
-    setAuthError("");
-    setCurrentUser(user);
-    setActiveView(user.role === "customer" ? "profile" : "overview");
+      setAuthError("");
+      setCurrentUser(data.user);
+      setActiveView(data.user.role === "customer" ? "profile" : "overview");
+      setActionLog("Đăng nhập thành công bằng JWT cookie.");
+    } catch {
+      setAuthError("Không kết nối được API. Kiểm tra MongoDB local và .env.local.");
+    }
   }
 
-  function handleRegister(event: FormEvent<HTMLFormElement>) {
+  async function handleRegister(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const name = String(form.get("name") ?? "").trim();
     const email = String(form.get("email") ?? "").trim();
+    const password = String(form.get("password") ?? "");
 
-    setAuthError("");
-    setCurrentUser({
-      id: Date.now(),
-      name: name || "Khách hàng mới",
-      email,
-      password: "123456",
-      role: "customer",
-      status: "Đang hoạt động",
-      wallet: 0,
-    });
-    setActiveView("profile");
+    try {
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setAuthError(data.message || "Không đăng ký được.");
+        return;
+      }
+
+      setAuthError("");
+      setCurrentUser(data.user);
+      setActiveView("profile");
+      setActionLog("Đăng ký thành công, tài khoản đã lưu MongoDB.");
+    } catch {
+      setAuthError("Không kết nối được API. Kiểm tra MongoDB local.");
+    }
   }
 
-  function createSession(event: FormEvent<HTMLFormElement>) {
+  async function createSession(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const plate = String(form.get("plate") ?? "").toUpperCase();
     const vehicleType = String(form.get("vehicleType") ?? "Ô tô") as ParkingSession["vehicleType"];
+    const owner = String(form.get("owner") ?? "Khách vãng lai");
 
-    // TODO: Sau này lấy slot trống từ API thay vì tính demo trên client.
-    setSessions((items) => [
-      {
-        id: `PX-${1030 + items.length}`,
-        plate,
-        owner: String(form.get("owner") ?? "Khách vãng lai"),
-        vehicleType,
-        checkIn: new Date().toLocaleTimeString("vi-VN", {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-        slot: vehicleType === "Ô tô" ? "A-15" : "B-09",
-        status: "Đang gửi",
-        fee: 0,
-      },
-      ...items,
-    ]);
-    event.currentTarget.reset();
+    try {
+      const response = await fetch("/api/parking-sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plate, owner, vehicleType }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setActionLog(data.message || "Không tạo được phiên đỗ xe.");
+        return;
+      }
+      setSessions((items) => [data.session, ...items]);
+      setActionLog(`Đã ghi nhận xe ${plate} vào MongoDB.`);
+      event.currentTarget.reset();
+    } catch {
+      setActionLog("Không kết nối được API tạo phiên.");
+    }
   }
 
-  function completeSession(id: string) {
-    setSessions((items) =>
-      items.map((item) =>
-        item.id === id
-          ? {
-              ...item,
-              status: "Đã hoàn thành",
-              checkOut: new Date().toLocaleTimeString("vi-VN", {
-                hour: "2-digit",
-                minute: "2-digit",
-              }),
-              fee: calculateFee(item.vehicleType),
-            }
-          : item,
-      ),
-    );
-    setActionLog(`Đã hoàn thành phiên ${id} và tạo biên lai demo.`);
+  async function completeSession(id: string) {
+    try {
+      const response = await fetch("/api/parking-sessions", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setActionLog(data.message || "Không hoàn thành được phiên.");
+        return;
+      }
+      setSessions((items) => items.map((item) => (item.id === id ? data.session : item)));
+      setActionLog(`Đã hoàn thành phiên ${id} và lưu biên lai vào MongoDB.`);
+    } catch {
+      setActionLog("Không kết nối được API hoàn thành phiên.");
+    }
   }
 
   function simulateAction(message: string) {
@@ -530,7 +606,15 @@ export default function Home() {
             <p>{roleLabels[currentUser.role]}</p>
             <h1>{currentUser.name}</h1>
           </div>
-          <button className="logout-button" onClick={() => setCurrentUser(null)} type="button">
+          <button
+            className="logout-button"
+            onClick={async () => {
+              await fetch("/api/auth/logout", { method: "POST" });
+              setCurrentUser(null);
+              setActionLog("Đã đăng xuất và xóa JWT cookie.");
+            }}
+            type="button"
+          >
             <LogOut size={18} />
             Đăng xuất
           </button>
@@ -654,7 +738,7 @@ export default function Home() {
               <UsersRound size={22} />
             </div>
             <div className="user-list">
-              {demoUsers.map((user) => (
+              {userList.map((user) => (
                 <div className="user-row" key={user.id}>
                   <div>
                     <strong>{user.name}</strong>
@@ -679,7 +763,7 @@ export default function Home() {
             </div>
             <DataTable
               headers={["Biển số", "Chủ xe", "Loại xe", "Trạng thái", "Thao tác"]}
-              rows={vehicles.map((vehicle) => [
+              rows={registeredVehicles.map((vehicle) => [
                 vehicle.plate,
                 vehicle.owner,
                 vehicle.type,
@@ -687,7 +771,26 @@ export default function Home() {
                 <button
                   className="small-button"
                   key={vehicle.plate}
-                  onClick={() => simulateAction(`Đã cập nhật trạng thái xe ${vehicle.plate} trong demo.`)}
+                  onClick={async () => {
+                    if (!vehicle.id) {
+                      simulateAction("Xe này chưa có ID MongoDB để duyệt.");
+                      return;
+                    }
+                    const response = await fetch("/api/vehicles", {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ id: vehicle.id, status: "Đã đăng ký" }),
+                    });
+                    const data = await response.json();
+                    if (!response.ok) {
+                      simulateAction(data.message || "Không duyệt được phương tiện.");
+                      return;
+                    }
+                    setRegisteredVehicles((items) =>
+                      items.map((item) => (item.id === vehicle.id ? data.vehicle : item)),
+                    );
+                    simulateAction(`Đã duyệt xe ${vehicle.plate} trong MongoDB.`);
+                  }}
                   type="button"
                 >
                   Duyệt
