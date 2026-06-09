@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Bãi Đỗ Xe",
-  description: "Web quản lý bãi đỗ xe - bản MVP",
+  title: "iPARK",
+  description: "Web quản lý bãi đỗ xe iPARK",
 };
 
 export default function RootLayout({

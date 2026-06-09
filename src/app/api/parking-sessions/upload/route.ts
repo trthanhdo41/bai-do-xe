@@ -1,15 +1,12 @@
 import { detectVehicleImage } from "@/lib/ai";
 import { readSession } from "@/lib/auth";
 import { connectDb } from "@/lib/db";
+import { allocateCarSlot, calculateParkingFee } from "@/lib/parking-config";
 import { imageHashSimilarity, platesMatch } from "@/lib/plate";
 import { serializeParkingSession } from "@/lib/serializers";
 import { saveUploadedImage } from "@/lib/upload";
 import { ParkingSession } from "@/models/ParkingSession";
 import { NextResponse } from "next/server";
-
-function calculateFee(vehicleType: "Ô tô" | "Xe máy") {
-  return vehicleType === "Ô tô" ? 35000 : 12000;
-}
 
 function getText(form: FormData, key: string) {
   const value = form.get(key);
@@ -41,13 +38,12 @@ export async function POST(request: Request) {
 
   if (action === "entry") {
     const imageUrl = await saveUploadedImage(image, "entry");
-    const vehicleType = getText(form, "vehicleType") === "Xe máy" ? "Xe máy" : "Ô tô";
     const activeCount = await ParkingSession.countDocuments({ status: "Đang gửi" });
     const session = await ParkingSession.create({
       plate: detection.plate,
       ownerName: getText(form, "owner") || "Khách vãng lai",
-      vehicleType,
-      slot: vehicleType === "Ô tô" ? `A-${String((activeCount % 40) + 1).padStart(2, "0")}` : `B-${String((activeCount % 80) + 1).padStart(2, "0")}`,
+      vehicleType: "Ô tô",
+      slot: allocateCarSlot(activeCount),
       entryImageUrl: imageUrl,
       entryDetectedPlate: detection.plate,
       entryConfidence: detection.confidence,
@@ -80,7 +76,7 @@ export async function POST(request: Request) {
     if (matched) {
       session.status = "Đã hoàn thành";
       session.checkOutAt = new Date();
-      session.fee = calculateFee(session.vehicleType);
+      session.fee = calculateParkingFee(session.checkInAt, session.checkOutAt);
     }
 
     await session.save();

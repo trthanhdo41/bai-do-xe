@@ -1,10 +1,11 @@
+import { SupportedVehicleType } from "@/lib/parking-config";
 import mongoose, { Model, Schema } from "mongoose";
 
 export type VehicleDocument = {
   _id: mongoose.Types.ObjectId;
   plate: string;
   ownerName: string;
-  vehicleType: "Ô tô" | "Xe máy";
+  vehicleType: SupportedVehicleType;
   status: "Đã đăng ký" | "Cần duyệt" | "Blacklist";
   userId?: mongoose.Types.ObjectId;
   createdAt: Date;
@@ -15,7 +16,7 @@ const vehicleSchema = new Schema<VehicleDocument>(
   {
     plate: { type: String, required: true, trim: true, uppercase: true, unique: true },
     ownerName: { type: String, required: true, trim: true },
-    vehicleType: { type: String, enum: ["Ô tô", "Xe máy"], required: true },
+    vehicleType: { type: String, enum: ["Ô tô"], required: true },
     status: { type: String, enum: ["Đã đăng ký", "Cần duyệt", "Blacklist"], default: "Cần duyệt" },
     userId: { type: Schema.Types.ObjectId, ref: "User" },
   },

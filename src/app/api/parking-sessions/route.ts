@@ -1,5 +1,6 @@
 import { readSession } from "@/lib/auth";
 import { connectDb } from "@/lib/db";
+import { allocateCarSlot, calculateParkingFee } from "@/lib/parking-config";
 import { serializeParkingSession } from "@/lib/serializers";
 import { ParkingSession } from "@/models/ParkingSession";
 import { NextResponse } from "next/server";
@@ -8,12 +9,8 @@ import { z } from "zod";
 const createSessionSchema = z.object({
   plate: z.string().min(5),
   owner: z.string().min(2),
-  vehicleType: z.enum(["Ô tô", "Xe máy"]),
+  vehicleType: z.literal("Ô tô").default("Ô tô"),
 });
-
-function calculateFee(vehicleType: "Ô tô" | "Xe máy") {
-  return vehicleType === "Ô tô" ? 35000 : 12000;
-}
 
 export async function GET() {
   const user = await readSession();
@@ -38,8 +35,8 @@ export async function POST(request: Request) {
   const session = await ParkingSession.create({
     plate: body.plate,
     ownerName: body.owner,
-    vehicleType: body.vehicleType,
-    slot: body.vehicleType === "Ô tô" ? `A-${String((activeCount % 40) + 1).padStart(2, "0")}` : `B-${String((activeCount % 80) + 1).padStart(2, "0")}`,
+    vehicleType: "Ô tô",
+    slot: allocateCarSlot(activeCount),
     createdBy: user.id,
   });
 
@@ -61,7 +58,7 @@ export async function PATCH(request: Request) {
 
   session.status = "Đã hoàn thành";
   session.checkOutAt = new Date();
-  session.fee = calculateFee(session.vehicleType);
+  session.fee = calculateParkingFee(session.checkInAt, session.checkOutAt);
   await session.save();
 
   return NextResponse.json({ session: serializeParkingSession(session) });

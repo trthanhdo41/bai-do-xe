@@ -1,10 +1,11 @@
+import { SupportedVehicleType } from "@/lib/parking-config";
 import mongoose, { Model, Schema } from "mongoose";
 
 export type ParkingSessionDocument = {
   _id: mongoose.Types.ObjectId;
   plate: string;
   ownerName: string;
-  vehicleType: "Ô tô" | "Xe máy";
+  vehicleType: SupportedVehicleType;
   checkInAt: Date;
   checkOutAt?: Date;
   slot: string;
@@ -30,7 +31,7 @@ const parkingSessionSchema = new Schema<ParkingSessionDocument>(
   {
     plate: { type: String, required: true, trim: true, uppercase: true },
     ownerName: { type: String, required: true, trim: true },
-    vehicleType: { type: String, enum: ["Ô tô", "Xe máy"], required: true },
+    vehicleType: { type: String, enum: ["Ô tô"], required: true },
     checkInAt: { type: Date, default: Date.now },
     checkOutAt: { type: Date },
     slot: { type: String, required: true },

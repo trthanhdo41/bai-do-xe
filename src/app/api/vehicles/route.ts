@@ -27,14 +27,14 @@ export async function POST(request: Request) {
     .object({
       plate: z.string().min(5),
       owner: z.string().min(2),
-      vehicleType: z.enum(["Ô tô", "Xe máy"]),
+      vehicleType: z.literal("Ô tô").default("Ô tô"),
     })
     .parse(await request.json());
 
   const vehicle = await Vehicle.create({
     plate: body.plate,
     ownerName: body.owner,
-    vehicleType: body.vehicleType,
+    vehicleType: "Ô tô",
     status: user.role === "customer" ? "Cần duyệt" : "Đã đăng ký",
     userId: user.id,
   });
