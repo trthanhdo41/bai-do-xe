@@ -72,7 +72,245 @@ Quy ước MVC backend:
 - `services/`: logic dùng lại như OCR, upload, tính match biển số.
 - `middlewares/`: auth, role guard, upload file, error handler.
 
-## 3. Cách chạy local
+## 3. Chuẩn kiến trúc đồ án kỹ thuật phần mềm
+
+Dự án nên trình bày theo kiến trúc 3 khối rõ ràng:
+
+```text
+Client Layer
+  Frontend Next.js
+  - Hiển thị UI
+  - Gọi API backend
+  - Không xử lý nghiệp vụ database
+
+Application Layer
+  Backend Express MVC
+  - Routes: định tuyến API
+  - Controllers: nhận request, validate, trả response
+  - Services: xử lý nghiệp vụ
+  - Models: định nghĩa dữ liệu MongoDB
+  - Middlewares: auth, role, upload, error
+
+AI/Infrastructure Layer
+  AI service Python FastAPI
+  MongoDB local
+  File storage local
+  Camera RTSP sau này
+```
+
+Không để frontend gọi trực tiếp MongoDB. Không để logic tính phí, phân quyền, checkout nằm trong UI. UI chỉ gọi API và hiển thị kết quả.
+
+### 3.1. Mô hình MVC backend
+
+Luồng xử lý chuẩn:
+
+```text
+Request
+  -> Route
+  -> Middleware
+  -> Controller
+  -> Service
+  -> Model/MongoDB
+  -> Controller response
+```
+
+Ví dụ luồng login:
+
+```text
+POST /api/auth/login
+  -> auth.routes.ts
+  -> auth.controller.ts
+  -> User model
+  -> token.service.ts
+  -> set JWT cookie
+```
+
+Ví dụ luồng xe vào bằng ảnh:
+
+```text
+POST /api/parking-sessions/upload
+  -> parkingSessions.routes.ts
+  -> upload.middleware.ts
+  -> parkingSessions.controller.ts
+  -> ai.service.ts gọi Python OCR
+  -> upload.service.ts lưu ảnh
+  -> ParkingSession model lưu MongoDB
+```
+
+### 3.2. Actors và use cases
+
+Actors:
+
+- Super Admin.
+- Nhân viên cổng.
+- Khách hàng.
+- AI Service.
+- MongoDB.
+- Camera RTSP sau này.
+- Cổng thanh toán VietQR sau này.
+
+Use cases chính:
+
+- Đăng nhập/đăng xuất.
+- Quản lý nhân viên.
+- Quản lý phương tiện.
+- Ghi nhận xe vào bằng ảnh.
+- Nhận diện biển số xe vào.
+- Ghi nhận xe ra bằng ảnh.
+- Đối chiếu biển số xe vào/ra.
+- Xác minh thủ công khi OCR lỗi.
+- Tính phí gửi xe.
+- Thanh toán/VietQR.
+- Xem lịch sử phiên đỗ xe.
+- Xuất báo cáo.
+- Quản lý camera.
+
+### 3.3. Entity/database hiện tại
+
+Các entity đã có:
+
+```text
+User
+  _id
+  name
+  email
+  passwordHash
+  role: admin | staff | customer
+  status
+  wallet
+  twoFactorEnabled
+  createdAt
+  updatedAt
+
+Vehicle
+  _id
+  plate
+  ownerName
+  vehicleType: Ô tô
+  status: Đã đăng ký | Cần duyệt | Blacklist
+  userId
+  createdAt
+  updatedAt
+
+ParkingSession
+  _id
+  plate
+  ownerName
+  vehicleType: Ô tô
+  checkInAt
+  checkOutAt
+  slot
+  status
+  fee
+  entryImageUrl
+  exitImageUrl
+  entryDetectedPlate
+  exitDetectedPlate
+  entryConfidence
+  exitConfidence
+  entryImageHash
+  exitImageHash
+  vehicleMatchScore
+  matchStatus
+  createdBy
+  createdAt
+  updatedAt
+```
+
+Entity cần bổ sung để đạt 100%:
+
+```text
+PricingConfig
+Transaction
+Feedback
+Notification
+Shift
+Incident
+Device
+OtpToken
+ReportExport
+```
+
+### 3.4. Sequence luồng xe vào/ra
+
+Xe vào:
+
+```text
+Staff UI
+  -> Backend POST /api/parking-sessions/upload?action=entry
+  -> Upload middleware nhận ảnh
+  -> AI service /detect
+  -> Backend nhận plate/confidence/imageHash
+  -> Backend cấp slot A/B/C
+  -> MongoDB tạo ParkingSession
+  -> UI hiển thị phiên đang gửi
+```
+
+Xe ra:
+
+```text
+Staff UI
+  -> Backend POST /api/parking-sessions/upload?action=exit
+  -> Upload middleware nhận ảnh
+  -> AI service /detect
+  -> Backend so plate vào/ra
+  -> Backend tính vehicleMatchScore
+  -> Nếu khớp: checkout + tính phí
+  -> Nếu không khớp: giữ phiên, yêu cầu xác minh thủ công
+  -> MongoDB cập nhật ParkingSession
+```
+
+### 3.5. Quy ước code cho nhân viên
+
+- Không viết API mới trong `frontend/`.
+- API mới phải đặt trong `backend/src/routes`.
+- Logic nghiệp vụ không viết trực tiếp trong route.
+- Controller chỉ điều phối request/response, không chứa logic dài.
+- Logic dùng lại đặt trong `backend/src/services`.
+- Schema MongoDB đặt trong `backend/src/models`.
+- Validate input bằng `zod`.
+- API lỗi phải trả JSON `{ message: string }`.
+- Các file upload/runtime không commit lên GitHub.
+- Không hardcode secret, tài khoản ngân hàng, SMTP password, Google secret trong code.
+
+### 3.6. Gợi ý chia việc cho 5 người
+
+Người 1 - Backend core:
+
+- PricingConfig.
+- Tính phí/phạt.
+- Transaction.
+- Role guard.
+
+Người 2 - Frontend:
+
+- Màn cấu hình giá.
+- Màn thanh toán.
+- Màn báo cáo.
+- Màn xác minh thủ công OCR.
+
+Người 3 - AI/camera:
+
+- Test OCR ảnh thật.
+- Cải thiện `ai-service/main.py`.
+- Tích hợp RTSP snapshot.
+- Crop vùng biển số.
+
+Người 4 - Auth/payment:
+
+- OTP email.
+- Google OAuth.
+- VietQR.
+- Wallet/transaction history.
+
+Người 5 - QA/tài liệu/báo cáo:
+
+- Test case.
+- Export PDF/Excel.
+- Hướng dẫn setup A-Z.
+- Sơ đồ use case, ERD, sequence cho báo cáo.
+
+## 4. Cách chạy local
 
 Yêu cầu máy có:
 
@@ -116,7 +354,7 @@ URL:
 - AI service: `http://127.0.0.1:8000`
 - AI health check: `http://127.0.0.1:8000/health`
 
-## 4. Biến môi trường
+## 5. Biến môi trường
 
 File `.env.local` không được push lên GitHub.
 
@@ -131,7 +369,7 @@ FRONTEND_URL=http://localhost:3000
 NEXT_PUBLIC_API_URL=http://localhost:4000/api
 ```
 
-## 5. Tài khoản seed
+## 6. Tài khoản seed
 
 Sau khi chạy `npm run seed`:
 
@@ -140,7 +378,7 @@ Sau khi chạy `npm run seed`:
 - Nhân viên cổng 2: `nv.2@ipark.vn` / `123456` - ca chiều `14:00-22:00`
 - Nhân viên cổng 3: `nv.3@ipark.vn` / `123456` - ca đêm `22:00-06:00`
 
-## 6. Tiến độ
+## 7. Tiến độ
 
 Ước tính hiện tại: khoảng 65-70%.
 
@@ -200,7 +438,7 @@ Chưa làm hoặc còn thiếu thông tin:
 - AI nhận diện loại xe/màu xe production.
 - AI match xe bằng model re-identification production.
 
-## 7. API chính
+## 8. API chính
 
 Auth:
 
@@ -232,7 +470,7 @@ AI service:
 - `GET /health`
 - `POST /detect`
 
-## 8. Luồng upload ảnh xe vào/ra
+## 9. Luồng upload ảnh xe vào/ra
 
 Xe vào:
 
@@ -265,7 +503,7 @@ Xe ra:
    - không tự checkout
    - cần nhân viên xác minh thủ công.
 
-## 9. Test đã chạy
+## 10. Test đã chạy
 
 Đã chạy:
 
@@ -302,7 +540,7 @@ Chưa test:
 - Google login thật.
 - Deploy production.
 
-## 10. Đánh giá đúng yêu cầu Dũng
+## 11. Đánh giá đúng yêu cầu Dũng
 
 Đúng phần lõi:
 
@@ -324,7 +562,7 @@ Chưa đúng 100% production:
 - Chưa test ảnh thực tế.
 - Chưa có model AI nhận dạng loại xe/màu xe production.
 
-## 11. Roadmap để đạt 100%
+## 12. Roadmap để đạt 100%
 
 Mốc hiện tại: khoảng 70%. Nhân viên tiếp nhận nên làm theo thứ tự dưới đây, không làm dàn trải.
 
@@ -525,7 +763,7 @@ Tiêu chí xong:
 - User chưa login không vào được dữ liệu.
 - Hướng dẫn setup chạy được trên máy mới.
 
-## 12. Definition of Done 100%
+## 13. Definition of Done 100%
 
 Dự án chỉ coi là 100% khi đạt toàn bộ điều kiện sau:
 
@@ -546,7 +784,7 @@ Dự án chỉ coi là 100% khi đạt toàn bộ điều kiện sau:
 - Tài liệu setup A-Z đủ để nhân viên mới chạy lại trên máy khác.
 - Không commit `.env.local`, mật khẩu, token, ảnh upload runtime.
 
-## 13. Checklist test trước khi bàn giao
+## 14. Checklist test trước khi bàn giao
 
 Auth:
 
@@ -595,7 +833,7 @@ AI/Camera:
 - Snapshot RTSP cổng vào.
 - Snapshot RTSP cổng ra.
 
-## 14. Thông tin cần hỏi tiếp Dũng
+## 15. Thông tin cần hỏi tiếp Dũng
 
 ```text
 Dũng ơi anh đã cập nhật iPARK: admin/3 nhân viên, chỉ ô tô, 30 chỗ khu A/B/C, miễn phí 20 phút đầu.
@@ -611,7 +849,7 @@ Em gửi tiếp giúp anh:
 8. Có mẫu báo cáo PDF/Excel của trường không?
 ```
 
-## 15. Lưu ý bảo mật
+## 16. Lưu ý bảo mật
 
 - Không commit `.env.local`.
 - Không commit ảnh upload runtime trong `backend/uploads`.
@@ -620,7 +858,7 @@ Em gửi tiếp giúp anh:
 - Đổi mật khẩu seed trước khi bàn giao thật.
 - Không để tài khoản ngân hàng, SMTP password, Google secret trong code.
 
-## 16. Repo
+## 17. Repo
 
 - Branch chính: `main`.
 - File tài liệu này được phép push để nhân viên đọc và tiếp tục phát triển.
