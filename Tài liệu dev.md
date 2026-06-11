@@ -276,36 +276,278 @@ Chưa đúng 100% production:
 - Chưa test ảnh thực tế.
 - Chưa có model AI nhận dạng loại xe/màu xe production.
 
-## 11. Việc cần làm tiếp
+## 11. Roadmap để đạt 100%
 
-Ưu tiên cao:
+Mốc hiện tại: khoảng 70%. Nhân viên tiếp nhận nên làm theo thứ tự dưới đây, không làm dàn trải.
 
-1. Dũng gửi bảng giá ô tô thật theo giờ, qua đêm, theo tháng.
-2. Dũng gửi mức phạt quá hạn.
-3. Lấy ảnh xe thật để test OCR.
-4. Thêm nhập biển số thủ công khi OCR lỗi.
-5. Làm CRUD thật cho cấu hình giá.
-6. Tính phí theo bảng giá thật.
-7. Làm lịch sử giao dịch ví thật.
-8. Làm báo cáo doanh thu thật.
+### Giai đoạn 1 - Hoàn thiện nghiệp vụ tính tiền
 
-Ưu tiên trung bình:
+Mục tiêu: hệ thống tính phí đúng theo quy định thật của iPARK.
 
-1. Làm SMTP OTP/quên mật khẩu.
-2. Làm Google OAuth.
-3. Làm VietQR thật.
-4. Làm xuất Excel/PDF.
-5. Làm cấu hình camera RTSP thật.
+Đầu vào cần có:
 
-Ưu tiên AI nâng cao:
+- Giá ô tô theo giờ.
+- Giá qua đêm.
+- Giá gói tháng.
+- Quy tắc phạt quá hạn.
+- Có tính phí từ phút 21 hay tính lại từ đầu sau 20 phút miễn phí.
 
-1. Thu thập dataset ảnh thực tế.
-2. Dùng OpenCV crop vùng biển số.
-3. Tích hợp model YOLO phát hiện biển số/xe.
-4. Tích hợp OCR tốt hơn cho biển số Việt Nam.
-5. Tính embedding ảnh xe để match xe vào/ra tốt hơn fingerprint hiện tại.
+Việc cần làm:
 
-## 12. Thông tin cần hỏi tiếp Dũng
+1. Tạo model cấu hình giá trong MongoDB, ví dụ `PricingConfig`.
+2. Tạo API CRUD cấu hình giá cho admin.
+3. Thay `parkingConfig.hourlyRate = 0` bằng dữ liệu DB.
+4. Cập nhật `calculateParkingFee()` trong `src/lib/parking-config.ts`.
+5. Khi checkout, lưu breakdown phí: thời gian gửi, phút miễn phí, số giờ tính tiền, phí gửi, phí phạt, tổng tiền.
+6. UI màn `Cấu hình` phải sửa được giá, gói tháng, phạt.
+7. UI phiên đỗ xe phải hiển thị chi tiết phí.
+
+Tiêu chí xong:
+
+- Gửi dưới 20 phút ra phí 0.
+- Gửi trên 20 phút tính đúng theo bảng giá.
+- Có phạt quá hạn nếu cấu hình phạt.
+- Fee lưu vào MongoDB và hiển thị lại sau refresh.
+
+Test cần chạy:
+
+- Unit test hàm tính phí với các mốc 10 phút, 20 phút, 21 phút, 1 giờ, qua đêm.
+- Manual test tạo phiên, checkout, refresh lại vẫn thấy phí đúng.
+
+### Giai đoạn 2 - Hoàn thiện vận hành ảnh/OCR
+
+Mục tiêu: luồng xe vào/ra dùng được với ảnh thực tế.
+
+Đầu vào cần có:
+
+- 10-20 ảnh xe vào/ra thật hoặc ảnh mẫu camera.
+- Ảnh ban ngày, ban đêm, ảnh nghiêng, ảnh mờ.
+
+Việc cần làm:
+
+1. Test OCR trong `ai-service/main.py` bằng ảnh thật.
+2. Tinh chỉnh tiền xử lý ảnh: grayscale, threshold, crop vùng biển số nếu cần.
+3. Thêm trường sửa biển số thủ công khi OCR sai.
+4. Lưu `manualPlate`, `verifiedBy`, `verifiedAt`, `verificationNote` vào MongoDB.
+5. Nếu ảnh ra không khớp, không checkout tự động; yêu cầu nhân viên xác minh.
+6. Thêm log lỗi OCR để biết ảnh nào nhận dạng kém.
+
+Tiêu chí xong:
+
+- Ảnh rõ nhận biển số ổn định.
+- OCR sai vẫn có luồng sửa thủ công.
+- Không có xe nào checkout nhầm khi biển không khớp.
+
+Test cần chạy:
+
+- Test ít nhất 20 ảnh thật.
+- Test ảnh vào đúng/ra đúng.
+- Test ảnh vào đúng/ra sai.
+- Test ảnh mờ không đọc được.
+
+### Giai đoạn 3 - Thanh toán và ví
+
+Mục tiêu: thanh toán không còn là giao diện chờ cấu hình.
+
+Đầu vào cần có:
+
+- Ngân hàng.
+- Số tài khoản.
+- Chủ tài khoản.
+- BIN ngân hàng.
+- Format nội dung chuyển khoản, ví dụ `IPARK-{sessionId}`.
+- Xác nhận thanh toán tự động hay nhân viên xác nhận thủ công.
+
+Việc cần làm:
+
+1. Tạo model `Transaction`.
+2. Tạo API tạo giao dịch thanh toán cho phiên đỗ xe.
+3. Tạo VietQR theo số tiền và nội dung chuyển khoản.
+4. Lưu trạng thái: `pending`, `paid`, `failed`, `cancelled`.
+5. Nếu chưa có webhook ngân hàng, làm nút admin xác nhận thủ công.
+6. Trừ/nạp ví nếu dùng ví nội bộ.
+
+Tiêu chí xong:
+
+- Checkout tạo được giao dịch.
+- QR hiển thị đúng số tiền/nội dung.
+- Xác nhận thanh toán xong phiên chuyển sang đã thanh toán.
+- Lịch sử giao dịch lưu MongoDB.
+
+### Giai đoạn 4 - OTP email và Google login
+
+Mục tiêu: xác thực đầy đủ theo yêu cầu ban đầu.
+
+Đầu vào cần có:
+
+- SMTP host, port, email gửi, app password.
+- Google OAuth Client ID/Secret.
+- Redirect URL local: `http://localhost:3000/api/auth/google/callback`.
+
+Việc cần làm OTP:
+
+1. Tạo model `OtpToken`.
+2. Tạo API gửi OTP quên mật khẩu.
+3. Gửi email qua SMTP.
+4. OTP hết hạn sau 5 phút.
+5. API xác minh OTP và đặt lại mật khẩu.
+
+Việc cần làm Google:
+
+1. Thêm API bắt đầu OAuth.
+2. Thêm callback OAuth.
+3. Nếu email chưa có tài khoản, tạo user `customer` hoặc role theo cấu hình.
+4. Set JWT cookie sau khi login Google thành công.
+
+Tiêu chí xong:
+
+- Gửi OTP tới email thật.
+- OTP sai/hết hạn bị từ chối.
+- Reset password dùng được.
+- Google login tạo/đăng nhập user thành công.
+
+### Giai đoạn 5 - Camera RTSP
+
+Mục tiêu: có thể lấy ảnh từ 2 camera cổng vào/cổng ra.
+
+Đầu vào cần có:
+
+- RTSP/HTTP camera cổng vào.
+- RTSP/HTTP camera cổng ra.
+- Username/password camera nếu có.
+
+Việc cần làm:
+
+1. Tạo model `Device`.
+2. Lưu cấu hình camera vào/ra.
+3. Python service dùng OpenCV đọc frame từ RTSP.
+4. API chụp snapshot từ camera.
+5. Snapshot cổng vào gọi OCR và tạo phiên.
+6. Snapshot cổng ra gọi OCR và checkout.
+7. UI hiển thị trạng thái online/offline.
+
+Tiêu chí xong:
+
+- Camera online hiển thị OK.
+- Chụp được ảnh từ cổng vào/cổng ra.
+- Ảnh từ camera đi qua cùng OCR hiện tại.
+
+### Giai đoạn 6 - Báo cáo
+
+Mục tiêu: admin xuất được báo cáo phục vụ nộp đồ án.
+
+Đầu vào cần có:
+
+- Mẫu PDF/Excel nếu trường yêu cầu.
+- Danh sách báo cáo bắt buộc.
+
+Việc cần làm:
+
+1. Báo cáo doanh thu theo ngày/tháng/khoảng thời gian.
+2. Báo cáo lượt xe vào.
+3. Báo cáo lượt xe ra.
+4. Báo cáo xe đang gửi.
+5. Báo cáo phí phạt.
+6. Báo cáo giao dịch ví/thanh toán.
+7. Xuất Excel trước, PDF sau.
+
+Tiêu chí xong:
+
+- Lọc được theo khoảng thời gian.
+- Số liệu lấy từ MongoDB, không dùng mock.
+- File export mở được và đúng format.
+
+### Giai đoạn 7 - Role, bảo mật và hoàn thiện bàn giao
+
+Mục tiêu: hệ thống đủ chắc để bàn giao local.
+
+Việc cần làm:
+
+1. Siết role guard cho từng API.
+2. Ẩn menu UI theo role.
+3. Super Admin quản lý nhân viên.
+4. Nhân viên chỉ thao tác xe vào/ra, không sửa giá/doanh thu.
+5. Đổi toàn bộ mật khẩu mặc định trước khi bàn giao.
+6. Viết hướng dẫn cài MongoDB, Tesseract, Node, Python từ A-Z.
+7. Thêm script kiểm tra sức khỏe hệ thống.
+
+Tiêu chí xong:
+
+- API bị gọi sai role trả 403.
+- User chưa login không vào được dữ liệu.
+- Hướng dẫn setup chạy được trên máy mới.
+
+## 12. Definition of Done 100%
+
+Dự án chỉ coi là 100% khi đạt toàn bộ điều kiện sau:
+
+- `npm run lint` pass.
+- `npm run build` pass.
+- `npm run seed` pass trên MongoDB local sạch.
+- AI service chạy được và `/health` trả `{ "ok": true }`.
+- Login admin và 3 nhân viên iPARK thành công.
+- Xe vào bằng ảnh thật tạo phiên đúng.
+- Xe ra bằng ảnh thật match đúng và checkout đúng.
+- OCR lỗi có luồng sửa biển số thủ công.
+- Tính phí đúng bảng giá thật.
+- Thanh toán/VietQR có giao dịch thật hoặc xác nhận thủ công rõ ràng.
+- OTP email gửi được email thật.
+- Google login chạy được với OAuth credentials.
+- Camera RTSP vào/ra lấy được snapshot hoặc tài liệu ghi rõ vẫn dùng upload ảnh nếu khách chưa có camera.
+- Báo cáo doanh thu/lượt xe xuất được Excel hoặc PDF.
+- Tài liệu setup A-Z đủ để nhân viên mới chạy lại trên máy khác.
+- Không commit `.env.local`, mật khẩu, token, ảnh upload runtime.
+
+## 13. Checklist test trước khi bàn giao
+
+Auth:
+
+- Login admin đúng mật khẩu.
+- Login nhân viên đúng mật khẩu.
+- Login sai mật khẩu bị từ chối.
+- Logout xóa session.
+- API chưa login trả 401.
+- API sai role trả 403.
+
+Parking:
+
+- Tạo phiên bằng upload ảnh xe vào.
+- Checkout bằng upload ảnh xe ra đúng biển.
+- Checkout bằng ảnh sai biển không tự hoàn thành.
+- OCR lỗi cho phép nhập biển thủ công.
+- Bãi đủ 30 chỗ thì không cho tạo thêm phiên mới.
+- Refresh trang không mất dữ liệu.
+
+Pricing:
+
+- Dưới 20 phút phí 0.
+- Phút 21 tính đúng theo rule đã chốt.
+- Qua đêm tính đúng.
+- Phạt quá hạn tính đúng.
+- Biên lai hiển thị breakdown đúng.
+
+Payment:
+
+- Tạo giao dịch đúng số tiền.
+- QR đúng nội dung.
+- Xác nhận thanh toán đổi trạng thái giao dịch.
+- Lịch sử giao dịch hiển thị đúng.
+
+Reports:
+
+- Lọc ngày có dữ liệu đúng.
+- Lọc ngày không có dữ liệu không lỗi.
+- Export Excel/PDF mở được.
+
+AI/Camera:
+
+- OCR ảnh rõ.
+- OCR ảnh mờ.
+- OCR ảnh nghiêng.
+- Snapshot RTSP cổng vào.
+- Snapshot RTSP cổng ra.
+
+## 14. Thông tin cần hỏi tiếp Dũng
 
 ```text
 Dũng ơi anh đã cập nhật iPARK: admin/3 nhân viên, chỉ ô tô, 30 chỗ khu A/B/C, miễn phí 20 phút đầu.
@@ -321,7 +563,7 @@ Em gửi tiếp giúp anh:
 8. Có mẫu báo cáo PDF/Excel của trường không?
 ```
 
-## 13. Lưu ý bảo mật
+## 15. Lưu ý bảo mật
 
 - Không commit `.env.local`.
 - Không commit ảnh upload runtime trong `public/uploads`.
@@ -330,7 +572,7 @@ Em gửi tiếp giúp anh:
 - Đổi mật khẩu seed trước khi bàn giao thật.
 - Không để tài khoản ngân hàng, SMTP password, Google secret trong code.
 
-## 14. Repo
+## 16. Repo
 
 - Branch chính: `main`.
 - File tài liệu này được phép push để nhân viên đọc và tiếp tục phát triển.
