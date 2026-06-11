@@ -14,7 +14,7 @@
     "build": "npm run build -w backend && npm run build -w frontend",
     "lint": "npm run lint -w frontend",
     "seed": "node backend/scripts/seed.mjs",
-    "ai:dev": "cd ai-service && ../.venv/bin/uvicorn main:app --reload --port 8000"
+    "ai:dev": "cd ai-service && ../.venv/bin/uvicorn main:app --reload --port 5000"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

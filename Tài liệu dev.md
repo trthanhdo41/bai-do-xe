@@ -323,6 +323,8 @@ Chạy cài dependency:
 
 ```bash
 npm install
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env.local
 npm run seed
 ```
 
@@ -356,18 +358,15 @@ URL:
 
 ## 5. Biến môi trường
 
-File `.env.local` không được push lên GitHub.
+File env local không được push lên GitHub. Dự án có sẵn file mẫu:
 
-Tạo local:
-
-```env
-MONGODB_URI=mongodb://127.0.0.1:27017/bai-do-xe
-MONGODB_DB=bai-do-xe
-JWT_SECRET=local-development-secret-for-bai-do-xe-please-change-in-production
-AI_SERVICE_URL=http://127.0.0.1:8000
-FRONTEND_URL=http://localhost:3000
-NEXT_PUBLIC_API_URL=http://localhost:4000/api
+```bash
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env.local
 ```
+
+- Backend đọc biến từ `backend/.env`.
+- Frontend đọc biến public từ `frontend/.env.local`.
 
 ## 6. Tài khoản seed
 

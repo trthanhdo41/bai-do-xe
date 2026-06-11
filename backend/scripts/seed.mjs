@@ -1,5 +1,11 @@
 import bcrypt from "bcryptjs";
+import dotenv from "dotenv";
 import mongoose from "mongoose";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: resolve(__dirname, "../.env") });
 
 const uri = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/bai-do-xe";
 const dbName = process.env.MONGODB_DB || "bai-do-xe";
