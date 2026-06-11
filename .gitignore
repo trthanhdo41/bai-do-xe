@@ -16,11 +16,16 @@
 
 # next.js
 /.next/
+/frontend/.next/
+/frontend/out/
 /out/
 
 # production
 /build
+/backend/dist
+/backend/uploads
 /public/uploads
+/frontend/public/uploads
 __pycache__/
 *.pyc
 

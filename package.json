@@ -1,31 +1,22 @@
 {
-  "name": "bai-do-xe",
+  "name": "ipark-monorepo",
   "version": "0.1.0",
   "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint",
-    "seed": "node scripts/seed.mjs",
+    "dev": "npm run dev:frontend",
+    "dev:frontend": "npm run dev -w frontend",
+    "dev:backend": "npm run dev -w backend",
+    "dev:all": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "build": "npm run build -w backend && npm run build -w frontend",
+    "lint": "npm run lint -w frontend",
+    "seed": "node backend/scripts/seed.mjs",
     "ai:dev": "cd ai-service && ../.venv/bin/uvicorn main:app --reload --port 8000"
   },
-  "dependencies": {
-    "bcryptjs": "^3.0.3",
-    "jose": "^6.2.3",
-    "lucide-react": "^1.17.0",
-    "mongoose": "^9.6.3",
-    "next": "16.2.7",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
-    "zod": "^4.4.3"
-  },
   "devDependencies": {
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.2.7",
-    "typescript": "^5"
+    "concurrently": "^9.2.1"
   }
 }

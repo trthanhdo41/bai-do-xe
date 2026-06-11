@@ -29,15 +29,48 @@ Luồng chính:
 8. Nếu khớp, hệ thống checkout và tính phí.
 9. Nếu không khớp hoặc OCR lỗi, nhân viên xác minh thủ công.
 
-## 2. Công nghệ
+## 2. Công nghệ và cấu trúc
 
-- Frontend + Backend API: Next.js, React, TypeScript.
+- Frontend: Next.js, React, TypeScript, nằm trong `frontend/`.
+- Backend API: Express, TypeScript, mô hình MVC, nằm trong `backend/`.
 - Database: MongoDB local.
 - Auth: JWT cookie `httpOnly`.
 - Password hash: `bcrypt`.
 - ORM/ODM: Mongoose.
 - AI/OCR: Python FastAPI + Tesseract OCR.
 - UI icon: lucide-react.
+
+Cấu trúc chính:
+
+```text
+frontend/
+  src/app/page.tsx
+  src/lib/client-api.ts
+  src/lib/parking-config.ts
+
+backend/
+  src/config/
+  src/controllers/
+  src/middlewares/
+  src/models/
+  src/routes/
+  src/services/
+  src/utils/
+  src/app.ts
+  src/server.ts
+
+ai-service/
+  main.py
+  requirements.txt
+```
+
+Quy ước MVC backend:
+
+- `routes/`: khai báo endpoint.
+- `controllers/`: nhận request/response, validate input.
+- `models/`: schema MongoDB/Mongoose.
+- `services/`: logic dùng lại như OCR, upload, tính match biển số.
+- `middlewares/`: auth, role guard, upload file, error handler.
 
 ## 3. Cách chạy local
 
@@ -48,15 +81,26 @@ Yêu cầu máy có:
 - MongoDB local ở `localhost:27017`.
 - Tesseract OCR.
 
-Chạy web:
+Chạy cài dependency:
 
 ```bash
 npm install
 npm run seed
-npm run dev
 ```
 
-Chạy AI service ở terminal khác:
+Chạy backend MVC ở terminal 1:
+
+```bash
+npm run dev:backend
+```
+
+Chạy frontend ở terminal 2:
+
+```bash
+npm run dev:frontend
+```
+
+Chạy AI service ở terminal 3:
 
 ```bash
 python3 -m venv .venv
@@ -66,7 +110,9 @@ npm run ai:dev
 
 URL:
 
-- Web: `http://localhost:3000`
+- Frontend: `http://localhost:3000`
+- Backend API: `http://localhost:4000/api`
+- Backend health check: `http://localhost:4000/api/health`
 - AI service: `http://127.0.0.1:8000`
 - AI health check: `http://127.0.0.1:8000/health`
 
@@ -81,6 +127,8 @@ MONGODB_URI=mongodb://127.0.0.1:27017/bai-do-xe
 MONGODB_DB=bai-do-xe
 JWT_SECRET=local-development-secret-for-bai-do-xe-please-change-in-production
 AI_SERVICE_URL=http://127.0.0.1:8000
+FRONTEND_URL=http://localhost:3000
+NEXT_PUBLIC_API_URL=http://localhost:4000/api
 ```
 
 ## 5. Tài khoản seed
@@ -116,7 +164,7 @@ Sau khi chạy `npm run seed`:
 - Miễn phí 20 phút đầu trong hàm tính phí.
 - Upload ảnh xe vào.
 - Python OCR nhận diện biển số ảnh vào.
-- Lưu ảnh vào `public/uploads/entry`.
+- Lưu ảnh vào `backend/uploads/entry`.
 - Upload ảnh xe ra.
 - Python OCR nhận diện biển số ảnh ra.
 - Match biển số vào/ra.
@@ -191,10 +239,10 @@ Xe vào:
 1. UI gửi `FormData` tới `POST /api/parking-sessions/upload`.
 2. `action=entry`.
 3. Có file `image`.
-4. Next.js API gọi Python service `/detect`.
+4. Backend Express API gọi Python service `/detect`.
 5. Python OCR trả `plate`, `confidence`, `rawText`, `imageHash`.
-6. Next.js lưu ảnh vào `public/uploads/entry`.
-7. Next.js tạo `ParkingSession` trong MongoDB.
+6. Backend lưu ảnh vào `backend/uploads/entry`.
+7. Backend tạo `ParkingSession` trong MongoDB.
 8. Slot được cấp theo A/B/C, tối đa 30 chỗ.
 
 Xe ra:
@@ -233,7 +281,7 @@ curl http://127.0.0.1:8000/health
 
 - Python OCR đọc được `30H67890`.
 - Confidence trả về `90`.
-- Upload ảnh xe vào qua Next.js API tạo session MongoDB thành công.
+- Upload ảnh xe vào qua backend Express API tạo session MongoDB thành công.
 - Upload ảnh xe ra cùng ảnh trả:
   - `matchStatus=Khớp`
   - `vehicleMatchScore=100`
@@ -566,7 +614,7 @@ Em gửi tiếp giúp anh:
 ## 15. Lưu ý bảo mật
 
 - Không commit `.env.local`.
-- Không commit ảnh upload runtime trong `public/uploads`.
+- Không commit ảnh upload runtime trong `backend/uploads`.
 - Không commit `.venv`, `node_modules`, `.next`.
 - Đổi `JWT_SECRET` khi deploy.
 - Đổi mật khẩu seed trước khi bàn giao thật.
