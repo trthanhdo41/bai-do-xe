@@ -18,6 +18,6 @@ app.use(
 app.use(express.json());
 app.use(cookieParser());
 app.use(morgan("dev"));
-app.use("/uploads", express.static(path.join(process.cwd(), "backend", "uploads")));
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 app.use("/api", apiRoutes);
 app.use(errorMiddleware);
