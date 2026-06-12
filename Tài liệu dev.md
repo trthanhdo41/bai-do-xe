@@ -353,8 +353,8 @@ URL:
 - Frontend: `http://localhost:3000`
 - Backend API: `http://localhost:4000/api`
 - Backend health check: `http://localhost:4000/api/health`
-- AI service: `http://127.0.0.1:8000`
-- AI health check: `http://127.0.0.1:8000/health`
+- AI service: `http://127.0.0.1:5000`
+- AI health check: `http://127.0.0.1:5000/health`
 
 ## 5. Biến môi trường
 
@@ -367,6 +367,8 @@ cp frontend/.env.example frontend/.env.local
 
 - Backend đọc biến từ `backend/.env`.
 - Frontend đọc biến public từ `frontend/.env.local`.
+- Google login cần thêm `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_CALLBACK_URL` trong `backend/.env`.
+- Seed tạo bảng giá mẫu: miễn phí 20 phút, 10.000đ/giờ, 80.000đ/qua đêm, 1.200.000đ/tháng, phạt quá hạn 20.000đ.
 
 ## 6. Tài khoản seed
 
@@ -390,6 +392,7 @@ Sau khi chạy `npm run seed`:
 - Hash mật khẩu bằng `bcrypt`.
 - MongoDB local bằng Mongoose.
 - Seed Super Admin và 3 nhân viên iPARK.
+- Seed bảng giá mẫu cho MVP.
 - Phân quyền cơ bản admin/staff/customer.
 - Quản lý user qua API admin.
 - Quản lý phương tiện qua API.
@@ -399,6 +402,8 @@ Sau khi chạy `npm run seed`:
 - Sức chứa 30 chỗ, chia khu A/B/C, mỗi khu 10 chỗ.
 - Cấp slot tự động theo A/B/C.
 - Miễn phí 20 phút đầu trong hàm tính phí.
+- Cấu hình bảng giá trong MongoDB qua API/UI admin.
+- Checkout lưu `feeBreakdown`: tổng phút, phút miễn phí, giờ tính tiền, đơn giá, phí gửi, phí phạt, tổng tiền.
 - Upload ảnh xe vào.
 - Python OCR nhận diện biển số ảnh vào.
 - Lưu ảnh vào `backend/uploads/entry`.
@@ -407,33 +412,35 @@ Sau khi chạy `npm run seed`:
 - Match biển số vào/ra.
 - Tính điểm tương đồng ảnh xe bằng fingerprint cơ bản.
 - Lưu trạng thái match vào MongoDB.
-- Nếu match thì checkout.
+- Nếu match thì checkout, nếu không khớp thì chờ admin duyệt.
+- Admin duyệt checkout OCR không khớp có audit biển số/lý do/người duyệt.
+- Checkout tạo giao dịch VietQR pending nếu phát sinh phí.
+- Admin xác nhận thanh toán thủ công.
+- Báo cáo summary theo ngày/khoảng ngày từ MongoDB.
+- Export Excel/PDF phiên đỗ xe/doanh thu.
+- Google OAuth login bằng JWT cookie khi có credentials.
+- OTP email đặt lại mật khẩu.
+- 2FA TOTP cho admin.
+- Camera RTSP cấu hình DB, snapshot qua AI service, xe vào/ra bằng camera.
+- Feedback, notification, shift, incident lưu MongoDB.
 - UI dashboard, phiên đỗ xe, người dùng, phương tiện, ví, phản hồi, thông báo, ca làm, sự cố, AI, camera/thiết bị, cấu hình, báo cáo, bảo mật.
 
-Đã có giao diện nhưng backend thật chưa đầy đủ:
+Đã có backend/UI thật cho đồ án local:
 
-- Ví và lịch sử giao dịch.
-- VietQR thật.
-- Phản hồi khách hàng.
-- Thông báo.
-- Quản lý ca làm việc đầy đủ.
-- Báo cáo sự cố đầy đủ.
-- Cấu hình bảng giá/gói/phạt.
-- Báo cáo doanh thu, thống kê, xuất PDF/Excel.
-- Quản lý camera/thiết bị RTSP.
-- OTP email.
-- 2FA admin.
-- Google login.
+- Ví/lịch sử giao dịch, VietQR QR + admin xác nhận tay.
+- Phản hồi khách hàng, thông báo, ca làm, sự cố.
+- Camera/thiết bị RTSP với upload ảnh fallback.
+- OTP email, 2FA admin, Google OAuth.
+- Báo cáo Excel/PDF mẫu iPARK.
 
 Chưa làm hoặc còn thiếu thông tin:
 
-- Bảng giá ô tô thật theo giờ, qua đêm, theo tháng.
-- Mức phạt quá hạn.
-- VietQR thật: cần thông tin ngân hàng/số tài khoản/chủ tài khoản/BIN để test thật.
-- SMTP OTP thật: cần SMTP host/user/app password.
-- Google OAuth thật: cần Google Client ID/Secret.
-- Camera RTSP thật: cần URL cổng vào và cổng ra.
-- Báo cáo PDF/Excel theo mẫu trường.
+- Bảng giá mẫu đã có; admin cần chỉnh lại theo bảng giá thật.
+- Quy tắc qua đêm/phạt quá hạn chi tiết hơn nếu muốn tính ngoài đơn giá theo giờ.
+- VietQR cần cấu hình ngân hàng/số tài khoản/chủ tài khoản/BIN thật để demo đúng thông tin.
+- SMTP OTP cần SMTP host/user/app password thật để gửi email thật; thiếu SMTP thì API trả OTP demo.
+- Google OAuth cần Google Client ID/Secret.
+- Camera RTSP cần URL cổng vào/cổng ra thật; không có thì dùng upload ảnh fallback.
 - AI nhận diện loại xe/màu xe production.
 - AI match xe bằng model re-identification production.
 
@@ -443,6 +450,13 @@ Auth:
 
 - `POST /api/auth/register`
 - `POST /api/auth/login`
+- `GET /api/auth/google`
+- `GET /api/auth/google/callback`
+- `POST /api/auth/forgot-password`
+- `POST /api/auth/reset-password`
+- `POST /api/auth/2fa/setup`
+- `POST /api/auth/2fa/verify`
+- `POST /api/auth/2fa/disable`
 - `POST /api/auth/logout`
 - `GET /api/auth/me`
 
@@ -463,11 +477,48 @@ Phiên đỗ xe:
 - `POST /api/parking-sessions`
 - `PATCH /api/parking-sessions`
 - `POST /api/parking-sessions/upload`
+- `POST /api/parking-sessions/:id/verification-request`
+- `POST /api/parking-sessions/:id/approve-checkout`
+- `POST /api/parking-sessions/camera-entry`
+- `POST /api/parking-sessions/camera-exit`
+
+Cấu hình giá:
+
+- `GET /api/pricing-config`
+- `PATCH /api/pricing-config`
+
+Báo cáo:
+
+- `GET /api/reports/summary?from=YYYY-MM-DD&to=YYYY-MM-DD`
+- `GET /api/reports/export?from=YYYY-MM-DD&to=YYYY-MM-DD&type=sessions|revenue&format=xlsx|pdf`
+
+Thanh toán:
+
+- `GET /api/payment-config`
+- `PATCH /api/payment-config`
+- `GET /api/transactions`
+- `POST /api/transactions/session/:sessionId`
+- `POST /api/transactions/:id/confirm`
+
+Thiết bị/camera:
+
+- `GET /api/devices`
+- `POST /api/devices`
+- `PATCH /api/devices/:id`
+- `POST /api/devices/:id/snapshot`
+
+Vận hành:
+
+- `GET/POST/PATCH /api/feedback`
+- `GET/POST/PATCH /api/notifications`
+- `GET/POST/PATCH /api/shifts`
+- `GET/POST/PATCH /api/incidents`
 
 AI service:
 
 - `GET /health`
 - `POST /detect`
+- `POST /snapshot`
 
 ## 9. Luồng upload ảnh xe vào/ra
 
@@ -511,7 +562,7 @@ npm run seed
 npm run lint
 npm run build
 .venv/bin/python -m py_compile ai-service/main.py
-curl http://127.0.0.1:8000/health
+curl http://127.0.0.1:5000/health
 ```
 
 Đã test thủ công bằng ảnh biển số tự tạo:
@@ -523,7 +574,8 @@ curl http://127.0.0.1:8000/health
   - `matchStatus=Khớp`
   - `vehicleMatchScore=100`
   - `status=Đã hoàn thành`
-  - `fee=0` nếu nằm trong 20 phút miễn phí hoặc chưa có bảng giá thật.
+  - `fee=0` nếu nằm trong 20 phút miễn phí.
+  - `feeBreakdown` được lưu nếu checkout thành công.
 
 Chưa test:
 
@@ -536,7 +588,7 @@ Chưa test:
 - Báo cáo PDF/Excel.
 - Thanh toán VietQR thật.
 - Email OTP thật.
-- Google login thật.
+- Google login end-to-end bằng credentials thật.
 - Deploy production.
 
 ## 11. Đánh giá đúng yêu cầu Dũng
@@ -552,10 +604,13 @@ Chưa test:
 - Chỉ làm ô tô: đã cập nhật model/API/UI chính.
 - Sức chứa 30 chỗ A/B/C: đã cập nhật config/slot.
 - Miễn phí 20 phút đầu: đã cập nhật hàm tính phí.
+- Bảng giá mẫu và chỉnh giá admin: đã có.
+- Báo cáo summary/export Excel từ MongoDB: đã có.
+- Google login: đã có code, cần Google credentials để test thật.
 
 Chưa đúng 100% production:
 
-- Chưa có bảng giá thật nên chưa tính được phí thật sau 20 phút.
+- Bảng giá thật cần admin chỉnh lại từ bảng giá mẫu.
 - Chưa có VietQR/SMTP/Google credentials thật.
 - Chưa có URL RTSP camera thật.
 - Chưa test ảnh thực tế.
@@ -569,23 +624,21 @@ Mốc hiện tại: khoảng 70%. Nhân viên tiếp nhận nên làm theo thứ
 
 Mục tiêu: hệ thống tính phí đúng theo quy định thật của iPARK.
 
-Đầu vào cần có:
+Đã triển khai MVP:
 
-- Giá ô tô theo giờ.
-- Giá qua đêm.
-- Giá gói tháng.
+- Model `PricingConfig` trong MongoDB.
+- Seed bảng giá mẫu.
+- API/UI admin để sửa bảng giá.
+- Checkout dùng bảng giá DB và lưu `feeBreakdown`.
+- Báo cáo summary/export Excel từ MongoDB.
+
+Đầu vào cần có để chỉnh production:
+
+- Giá ô tô thật theo giờ.
+- Quy tắc qua đêm.
+- Quy tắc gói tháng.
 - Quy tắc phạt quá hạn.
 - Có tính phí từ phút 21 hay tính lại từ đầu sau 20 phút miễn phí.
-
-Việc cần làm:
-
-1. Tạo model cấu hình giá trong MongoDB, ví dụ `PricingConfig`.
-2. Tạo API CRUD cấu hình giá cho admin.
-3. Thay `parkingConfig.hourlyRate = 0` bằng dữ liệu DB.
-4. Cập nhật `calculateParkingFee()` trong `src/lib/parking-config.ts`.
-5. Khi checkout, lưu breakdown phí: thời gian gửi, phút miễn phí, số giờ tính tiền, phí gửi, phí phạt, tổng tiền.
-6. UI màn `Cấu hình` phải sửa được giá, gói tháng, phạt.
-7. UI phiên đỗ xe phải hiển thị chi tiết phí.
 
 Tiêu chí xong:
 
@@ -667,7 +720,7 @@ Mục tiêu: xác thực đầy đủ theo yêu cầu ban đầu.
 
 - SMTP host, port, email gửi, app password.
 - Google OAuth Client ID/Secret.
-- Redirect URL local: `http://localhost:3000/api/auth/google/callback`.
+- Redirect URL local: `http://localhost:4000/api/auth/google/callback`.
 
 Việc cần làm OTP:
 

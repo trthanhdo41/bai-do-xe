@@ -1,6 +1,15 @@
 import { Router } from "express";
 import { authRoutes } from "./auth.routes.js";
+import { devicesRoutes } from "./devices.routes.js";
+import { feedbackRoutes } from "./feedback.routes.js";
+import { incidentsRoutes } from "./incidents.routes.js";
+import { notificationsRoutes } from "./notifications.routes.js";
 import { parkingSessionsRoutes } from "./parkingSessions.routes.js";
+import { paymentConfigRoutes } from "./paymentConfig.routes.js";
+import { pricingConfigRoutes } from "./pricingConfig.routes.js";
+import { reportsRoutes } from "./reports.routes.js";
+import { shiftsRoutes } from "./shifts.routes.js";
+import { transactionsRoutes } from "./transactions.routes.js";
 import { usersRoutes } from "./users.routes.js";
 import { vehiclesRoutes } from "./vehicles.routes.js";
 
@@ -11,3 +20,12 @@ apiRoutes.use("/auth", authRoutes);
 apiRoutes.use("/users", usersRoutes);
 apiRoutes.use("/vehicles", vehiclesRoutes);
 apiRoutes.use("/parking-sessions", parkingSessionsRoutes);
+apiRoutes.use("/pricing-config", pricingConfigRoutes);
+apiRoutes.use("/reports", reportsRoutes);
+apiRoutes.use("/payment-config", paymentConfigRoutes);
+apiRoutes.use("/transactions", transactionsRoutes);
+apiRoutes.use("/devices", devicesRoutes);
+apiRoutes.use("/feedback", feedbackRoutes);
+apiRoutes.use("/notifications", notificationsRoutes);
+apiRoutes.use("/shifts", shiftsRoutes);
+apiRoutes.use("/incidents", incidentsRoutes);

@@ -4,7 +4,8 @@ import { Vehicle } from "../models/Vehicle.js";
 import { serializeVehicle } from "../utils/serializers.js";
 
 export async function listVehicles(_request: Request, response: Response) {
-  const vehicles = await Vehicle.find().sort({ createdAt: -1 }).limit(100);
+  const criteria = _request.user?.role === "customer" ? { userId: _request.user.id } : {};
+  const vehicles = await Vehicle.find(criteria).sort({ createdAt: -1 }).limit(100);
   response.json({ vehicles: vehicles.map(serializeVehicle) });
 }
 

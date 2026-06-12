@@ -9,6 +9,8 @@ export type AuthUser = {
   role: UserRole;
   status: string;
   wallet: number;
+  avatarUrl?: string;
+  provider?: string;
 };
 
 function secretKey() {

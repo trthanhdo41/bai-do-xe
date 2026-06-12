@@ -10,5 +10,14 @@ export const env = {
     process.env.JWT_SECRET ||
     "local-development-secret-for-bai-do-xe-please-change-in-production",
   frontendUrl: process.env.FRONTEND_URL || "http://localhost:3000",
-  aiServiceUrl: process.env.AI_SERVICE_URL || "http://127.0.0.1:8000",
+  aiServiceUrl: process.env.AI_SERVICE_URL || "http://127.0.0.1:5000",
+  googleClientId: process.env.GOOGLE_CLIENT_ID || "",
+  googleClientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+  googleCallbackUrl: process.env.GOOGLE_CALLBACK_URL || "http://localhost:4000/api/auth/google/callback",
+  smtpHost: process.env.SMTP_HOST || "",
+  smtpPort: Number(process.env.SMTP_PORT || 587),
+  smtpUser: process.env.SMTP_USER || "",
+  smtpPass: process.env.SMTP_PASS || "",
+  smtpFrom: process.env.SMTP_FROM || process.env.SMTP_USER || "iPARK <no-reply@ipark.local>",
+  totpIssuer: process.env.TOTP_ISSUER || "iPARK",
 };

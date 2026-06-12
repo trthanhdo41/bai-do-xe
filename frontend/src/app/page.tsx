@@ -34,7 +34,8 @@ import {
   Wallet,
   Wrench,
 } from "lucide-react";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
 import { apiFetch } from "@/lib/client-api";
 import { parkingConfig } from "@/lib/parking-config";
@@ -65,6 +66,20 @@ type DemoUser = {
   role: Role;
   status: "Đang hoạt động" | "Đã khóa";
   wallet: number;
+  avatarUrl?: string;
+  provider?: string;
+  twoFactorEnabled?: boolean;
+};
+
+type FeeBreakdown = {
+  totalMinutes: number;
+  freeMinutes: number;
+  billableMinutes: number;
+  billableHours: number;
+  hourlyRate: number;
+  parkingFee: number;
+  overdueFine: number;
+  totalFee: number;
 };
 
 type ParkingSession = {
@@ -85,6 +100,12 @@ type ParkingSession = {
   exitConfidence?: number;
   vehicleMatchScore?: number;
   matchStatus?: "Chưa checkout" | "Khớp" | "Không khớp";
+  verificationStatus?: "Không cần" | "Chờ duyệt" | "Đã duyệt" | "Từ chối";
+  manualPlate?: string;
+  verificationNote?: string;
+  paymentStatus?: "unpaid" | "pending" | "paid";
+  transactionId?: string;
+  feeBreakdown?: FeeBreakdown;
 };
 
 type RegisteredVehicle = {
@@ -93,6 +114,95 @@ type RegisteredVehicle = {
   owner: string;
   type: "Ô tô" | string;
   status: "Đã đăng ký" | "Cần duyệt" | "Blacklist" | string;
+};
+
+type PricingConfig = {
+  id: string;
+  freeMinutes: number;
+  hourlyRate: number;
+  overnightRate: number;
+  monthlyRate: number;
+  overdueFineRate: number;
+  isActive: boolean;
+  updatedAt?: string;
+};
+
+type ReportSummary = {
+  from: string;
+  to: string;
+  entryCount: number;
+  exitCount: number;
+  activeCount: number;
+  revenue: number;
+  freeSessionCount: number;
+  paidSessionCount: number;
+};
+
+type PaymentConfig = {
+  id: string;
+  bankName: string;
+  bankBin: string;
+  accountNumber: string;
+  accountName: string;
+  transferPrefix: string;
+};
+
+type TransactionItem = {
+  id: string;
+  sessionId?: string;
+  method: string;
+  amount: number;
+  status: "pending" | "paid" | "failed" | "cancelled";
+  content: string;
+  qrUrl?: string;
+  paidAt?: string;
+  createdAt: string;
+};
+
+type NotificationItem = {
+  id: string;
+  title: string;
+  content: string;
+  read: boolean;
+  createdAt: string;
+};
+
+type FeedbackItem = {
+  id: string;
+  subject: string;
+  content: string;
+  status: "Đang xử lý" | "Đã phản hồi" | "Đã đóng";
+  response?: string;
+  createdAt: string;
+};
+
+type DeviceItem = {
+  id: string;
+  name: string;
+  gate: "entry" | "exit";
+  rtspUrl: string;
+  username?: string;
+  roiNote?: string;
+  status: "online" | "offline" | "unknown";
+  lastSnapshotUrl?: string;
+};
+
+type ShiftItem = {
+  id: string;
+  name: string;
+  startAt: string;
+  endAt?: string;
+  status: "Đang làm" | "Đã kết thúc";
+  note?: string;
+};
+
+type IncidentItem = {
+  id: string;
+  type: string;
+  note: string;
+  plate?: string;
+  status: "Mới" | "Đang xử lý" | "Đã xử lý";
+  createdAt: string;
 };
 
 const demoUsers: DemoUser[] = [
@@ -219,6 +329,31 @@ const currency = new Intl.NumberFormat("vi-VN", {
   currency: "VND",
 });
 
+const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
+
+const initialPricingConfig: PricingConfig = {
+  id: "default",
+  freeMinutes: 20,
+  hourlyRate: 10000,
+  overnightRate: 80000,
+  monthlyRate: 1200000,
+  overdueFineRate: 20000,
+  isActive: true,
+};
+
+const initialPaymentConfig: PaymentConfig = {
+  id: "default",
+  bankName: "Ngân hàng test",
+  bankBin: "970436",
+  accountNumber: "0000000000",
+  accountName: "IPARK",
+  transferPrefix: "IPARK",
+};
+
+function todayInputValue() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export default function Home() {
   const [mode, setMode] = useState<"login" | "register" | "forgot">("login");
   const [currentUser, setCurrentUser] = useState<DemoUser | null>(null);
@@ -231,6 +366,34 @@ export default function Home() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [actionLog, setActionLog] = useState("Sẵn sàng vận hành.");
   const [exitSessionId, setExitSessionId] = useState("");
+  const [pricingConfigState, setPricingConfigState] = useState<PricingConfig>(initialPricingConfig);
+  const [paymentConfigState, setPaymentConfigState] = useState<PaymentConfig>(initialPaymentConfig);
+  const [transactionList, setTransactionList] = useState<TransactionItem[]>([]);
+  const [notificationList, setNotificationList] = useState<NotificationItem[]>([]);
+  const [feedbackList, setFeedbackList] = useState<FeedbackItem[]>([]);
+  const [deviceList, setDeviceList] = useState<DeviceItem[]>([]);
+  const [shiftList, setShiftList] = useState<ShiftItem[]>([]);
+  const [incidentList, setIncidentList] = useState<IncidentItem[]>([]);
+  const [twoFactorQr, setTwoFactorQr] = useState("");
+  const [reportFrom, setReportFrom] = useState(todayInputValue);
+  const [reportTo, setReportTo] = useState(todayInputValue);
+  const [reportSummary, setReportSummary] = useState<ReportSummary | null>(null);
+
+  const loadReportSummary = useCallback(async (from: string, to: string) => {
+    try {
+      const params = new URLSearchParams({ from, to });
+      const response = await apiFetch(`/reports/summary?${params.toString()}`);
+      const data = await response.json();
+      if (!response.ok) {
+        setActionLog(data.message || "Không tải được báo cáo.");
+        return;
+      }
+
+      setReportSummary(data.summary);
+    } catch {
+      setActionLog("Không kết nối được API báo cáo.");
+    }
+  }, []);
 
   useEffect(() => {
     async function loadSession() {
@@ -276,6 +439,52 @@ export default function Home() {
             setUserList(data.users);
           }
         }
+        const pricingResponse = await apiFetch("/pricing-config");
+        if (pricingResponse.ok) {
+          const data = await pricingResponse.json();
+          setPricingConfigState(data.pricingConfig);
+        }
+        const [paymentResponse, transactionResponse, notificationResponse, feedbackResponse] = await Promise.all([
+          apiFetch("/payment-config"),
+          apiFetch("/transactions"),
+          apiFetch("/notifications"),
+          apiFetch("/feedback"),
+        ]);
+        if (paymentResponse.ok) {
+          const data = await paymentResponse.json();
+          setPaymentConfigState(data.paymentConfig);
+        }
+        if (transactionResponse.ok) {
+          const data = await transactionResponse.json();
+          setTransactionList(data.transactions);
+        }
+        if (notificationResponse.ok) {
+          const data = await notificationResponse.json();
+          setNotificationList(data.notifications);
+        }
+        if (feedbackResponse.ok) {
+          const data = await feedbackResponse.json();
+          setFeedbackList(data.feedback);
+        }
+        if (activeUser.role !== "customer") {
+          const [deviceResponse, shiftResponse, incidentResponse] = await Promise.all([
+            apiFetch("/devices"),
+            apiFetch("/shifts"),
+            apiFetch("/incidents"),
+          ]);
+          if (deviceResponse.ok) {
+            const data = await deviceResponse.json();
+            setDeviceList(data.devices);
+          }
+          if (shiftResponse.ok) {
+            const data = await shiftResponse.json();
+            setShiftList(data.shifts);
+          }
+          if (incidentResponse.ok) {
+            const data = await incidentResponse.json();
+            setIncidentList(data.incidents);
+          }
+        }
       } catch {
         setActionLog("Không tải được dữ liệu vận hành từ MongoDB local.");
       }
@@ -283,6 +492,34 @@ export default function Home() {
 
     loadOperationalData();
   }, [currentUser]);
+
+  useEffect(() => {
+    if (currentUser?.role !== "admin") {
+      return;
+    }
+
+    let ignore = false;
+
+    async function loadCurrentReportSummary() {
+      try {
+        const params = new URLSearchParams({ from: reportFrom, to: reportTo });
+        const response = await apiFetch(`/reports/summary?${params.toString()}`);
+        const data = await response.json();
+        if (!ignore && response.ok) {
+          setReportSummary(data.summary);
+        }
+      } catch {
+        if (!ignore) {
+          setActionLog("Không kết nối được API báo cáo.");
+        }
+      }
+    }
+
+    loadCurrentReportSummary();
+    return () => {
+      ignore = true;
+    };
+  }, [currentUser?.role, reportFrom, reportTo]);
 
   const stats = useMemo(() => {
     const active = sessions.filter((item) => item.status === "Đang gửi").length;
@@ -306,14 +543,19 @@ export default function Home() {
     const form = new FormData(event.currentTarget);
     const email = String(form.get("email") ?? "").trim();
     const password = String(form.get("password") ?? "");
+    const twoFactorCode = String(form.get("twoFactorCode") ?? "").trim();
 
     try {
       const response = await apiFetch("/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, ...(twoFactorCode ? { twoFactorCode } : {}) }),
       });
       const data = await response.json();
+      if (response.status === 202 && data.requiresTwoFactor) {
+        setAuthError(data.message || "Vui lòng nhập mã 2FA.");
+        return;
+      }
       if (!response.ok) {
         setAuthError(data.message || "Không đăng nhập được.");
         return;
@@ -353,6 +595,376 @@ export default function Home() {
       setActionLog("Đăng ký thành công, tài khoản đã lưu MongoDB.");
     } catch {
       setAuthError("Không kết nối được API. Kiểm tra MongoDB local.");
+    }
+  }
+
+  async function handleForgotPassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const email = String(form.get("email") ?? "").trim();
+    const otp = String(form.get("otp") ?? "").trim();
+    const password = String(form.get("password") ?? "");
+
+    try {
+      const response = await apiFetch(otp && password ? "/auth/reset-password" : "/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(otp && password ? { email, otp, password } : { email }),
+      });
+      const data = await response.json();
+      setAuthError(data.devOtp ? `${data.message} OTP demo: ${data.devOtp}` : data.message || "Đã xử lý OTP.");
+      if (response.ok && otp && password) {
+        setMode("login");
+      }
+    } catch {
+      setAuthError("Không kết nối được API OTP.");
+    }
+  }
+
+  async function updatePricing(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const payload = {
+      freeMinutes: Number(form.get("freeMinutes") || 0),
+      hourlyRate: Number(form.get("hourlyRate") || 0),
+      overnightRate: Number(form.get("overnightRate") || 0),
+      monthlyRate: Number(form.get("monthlyRate") || 0),
+      overdueFineRate: Number(form.get("overdueFineRate") || 0),
+    };
+
+    try {
+      const response = await apiFetch("/pricing-config", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setActionLog(data.message || "Không lưu được bảng giá.");
+        return;
+      }
+
+      setPricingConfigState(data.pricingConfig);
+      setActionLog("Đã cập nhật bảng giá trong MongoDB.");
+    } catch {
+      setActionLog("Không kết nối được API cấu hình giá.");
+    }
+  }
+
+  async function updatePaymentConfig(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const payload = {
+      bankName: String(form.get("bankName") || ""),
+      bankBin: String(form.get("bankBin") || ""),
+      accountNumber: String(form.get("accountNumber") || ""),
+      accountName: String(form.get("accountName") || ""),
+      transferPrefix: String(form.get("transferPrefix") || ""),
+    };
+
+    try {
+      const response = await apiFetch("/payment-config", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setActionLog(data.message || "Không lưu được cấu hình thanh toán.");
+        return;
+      }
+      setPaymentConfigState(data.paymentConfig);
+      setActionLog("Đã lưu cấu hình VietQR.");
+    } catch {
+      setActionLog("Không kết nối được API thanh toán.");
+    }
+  }
+
+  async function confirmTransaction(id: string) {
+    const response = await apiFetch(`/transactions/${id}/confirm`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ note: "Admin xác nhận thủ công" }),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      setActionLog(data.message || "Không xác nhận được giao dịch.");
+      return;
+    }
+    setTransactionList((items) => items.map((item) => (item.id === id ? data.transaction : item)));
+    setActionLog("Đã xác nhận thanh toán.");
+  }
+
+  async function createPaymentForSession(id: string) {
+    const response = await apiFetch(`/transactions/session/${id}`, { method: "POST" });
+    const data = await response.json();
+    if (!response.ok) {
+      setActionLog(data.message || "Không tạo được giao dịch.");
+      return;
+    }
+    if (data.transaction) {
+      setTransactionList((items) => [data.transaction, ...items.filter((item) => item.id !== data.transaction.id)]);
+    }
+    setActionLog(data.message || "Đã tạo giao dịch cho phiên.");
+  }
+
+  async function createFeedback(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const response = await apiFetch("/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        subject: String(form.get("subject") || ""),
+        content: String(form.get("content") || ""),
+      }),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      setActionLog(data.message || "Không gửi được phản hồi.");
+      return;
+    }
+    setFeedbackList((items) => [data.feedback, ...items]);
+    setActionLog("Đã lưu phản hồi vào MongoDB.");
+    event.currentTarget.reset();
+  }
+
+  async function updateFeedbackStatus(id: string) {
+    const response = await apiFetch(`/feedback/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "Đã phản hồi", response: "Đã tiếp nhận và xử lý." }),
+    });
+    const data = await response.json();
+    if (response.ok) {
+      setFeedbackList((items) => items.map((item) => (item.id === id ? data.feedback : item)));
+      setActionLog("Đã phản hồi khách hàng.");
+    }
+  }
+
+  async function markNotificationRead(id: string) {
+    const response = await apiFetch(`/notifications/${id}/read`, { method: "PATCH" });
+    const data = await response.json();
+    if (response.ok) {
+      setNotificationList((items) => items.map((item) => (item.id === id ? data.notification : item)));
+    }
+  }
+
+  async function startShift(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const response = await apiFetch("/shifts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: String(form.get("name") || "Ca làm"), note: String(form.get("note") || "") }),
+    });
+    const data = await response.json();
+    if (response.ok) {
+      setShiftList((items) => [data.shift, ...items]);
+      setActionLog("Đã bắt đầu ca làm việc.");
+      event.currentTarget.reset();
+    }
+  }
+
+  async function endShift(id: string) {
+    const response = await apiFetch(`/shifts/${id}/end`, { method: "PATCH" });
+    const data = await response.json();
+    if (response.ok) {
+      setShiftList((items) => items.map((item) => (item.id === id ? data.shift : item)));
+      setActionLog("Đã kết thúc ca làm việc.");
+    }
+  }
+
+  async function createIncident(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const response = await apiFetch("/incidents", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: String(form.get("type") || "Khác"),
+        note: String(form.get("note") || ""),
+        plate: String(form.get("plate") || ""),
+      }),
+    });
+    const data = await response.json();
+    if (response.ok) {
+      setIncidentList((items) => [data.incident, ...items]);
+      setActionLog("Đã lưu sự cố vào MongoDB.");
+      event.currentTarget.reset();
+    }
+  }
+
+  async function resolveIncident(id: string) {
+    const response = await apiFetch(`/incidents/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "Đã xử lý" }),
+    });
+    const data = await response.json();
+    if (response.ok) {
+      setIncidentList((items) => items.map((item) => (item.id === id ? data.incident : item)));
+      setActionLog("Đã xử lý sự cố.");
+    }
+  }
+
+  async function saveDevice(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const id = String(form.get("id") || "");
+    const payload = {
+      name: String(form.get("name") || ""),
+      gate: String(form.get("gate") || "entry"),
+      rtspUrl: String(form.get("rtspUrl") || ""),
+      username: String(form.get("username") || ""),
+      password: String(form.get("password") || ""),
+      roiNote: String(form.get("roiNote") || ""),
+    };
+    const response = await apiFetch(id ? `/devices/${id}` : "/devices", {
+      method: id ? "PATCH" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json();
+    if (response.ok) {
+      setDeviceList((items) =>
+        id ? items.map((item) => (item.id === id ? data.device : item)) : [data.device, ...items],
+      );
+      setActionLog("Đã lưu cấu hình camera.");
+      event.currentTarget.reset();
+    } else {
+      setActionLog(data.message || "Không lưu được camera.");
+    }
+  }
+
+  async function snapshotDevice(id: string) {
+    const response = await apiFetch(`/devices/${id}/snapshot`, { method: "POST" });
+    const data = await response.json();
+    if (response.ok) {
+      setDeviceList((items) => items.map((item) => (item.id === id ? data.device : item)));
+      setActionLog("Đã chụp snapshot camera.");
+    } else {
+      setActionLog(data.message || "Không chụp được camera.");
+    }
+  }
+
+  async function cameraEntry(deviceId: string) {
+    const response = await apiFetch("/parking-sessions/camera-entry", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ deviceId, owner: "Khách vãng lai" }),
+    });
+    const data = await response.json();
+    if (response.ok) {
+      setSessions((items) => [data.session, ...items]);
+      setActionLog("Camera đã tạo phiên xe vào.");
+    } else {
+      setActionLog(data.message || "Camera xe vào lỗi.");
+    }
+  }
+
+  async function cameraExit(deviceId: string) {
+    if (!exitSessionId) {
+      setActionLog("Chọn phiên checkout trước khi dùng camera cổng ra.");
+      return;
+    }
+    const response = await apiFetch("/parking-sessions/camera-exit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ deviceId, sessionId: exitSessionId }),
+    });
+    const data = await response.json();
+    if (response.ok) {
+      setSessions((items) => items.map((item) => (item.id === exitSessionId ? data.session : item)));
+      setActionLog(data.message || "Camera checkout đã xử lý.");
+    } else {
+      setActionLog(data.message || "Camera xe ra lỗi.");
+    }
+  }
+
+  async function approveCheckout(id: string, plate: string) {
+    const response = await apiFetch(`/parking-sessions/${id}/approve-checkout`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ manualPlate: plate, verificationNote: "Admin duyệt từ UI" }),
+    });
+    const data = await response.json();
+    if (response.ok) {
+      setSessions((items) => items.map((item) => (item.id === id ? data.session : item)));
+      setActionLog("Admin đã duyệt checkout thủ công.");
+    } else {
+      setActionLog(data.message || "Không duyệt được checkout.");
+    }
+  }
+
+  async function setupTwoFactor() {
+    const response = await apiFetch("/auth/2fa/setup", { method: "POST" });
+    const data = await response.json();
+    if (response.ok) {
+      setTwoFactorQr(data.qrDataUrl);
+      setActionLog("Quét QR rồi nhập mã để bật 2FA.");
+    } else {
+      setActionLog(data.message || "Không tạo được QR 2FA.");
+    }
+  }
+
+  async function verifyTwoFactor(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const response = await apiFetch("/auth/2fa/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: String(form.get("code") || "") }),
+    });
+    const data = await response.json();
+    if (response.ok) {
+      setCurrentUser(data.user);
+      setTwoFactorQr("");
+      setActionLog("Đã bật 2FA.");
+      event.currentTarget.reset();
+    } else {
+      setActionLog(data.message || "Không xác minh được 2FA.");
+    }
+  }
+
+  async function disableTwoFactor(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const response = await apiFetch("/auth/2fa/disable", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: String(form.get("code") || "") }),
+    });
+    const data = await response.json();
+    if (response.ok) {
+      setCurrentUser(data.user);
+      setActionLog("Đã tắt 2FA.");
+      event.currentTarget.reset();
+    } else {
+      setActionLog(data.message || "Không tắt được 2FA.");
+    }
+  }
+
+  async function downloadReport(type: "sessions" | "revenue", format: "xlsx" | "pdf" = "xlsx") {
+    try {
+      const params = new URLSearchParams({ from: reportFrom, to: reportTo, type, format });
+      const response = await apiFetch(`/reports/export?${params.toString()}`);
+      if (!response.ok) {
+        const data = await response.json();
+        setActionLog(data.message || "Không xuất được báo cáo.");
+        return;
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `ipark-${type}-${reportFrom}-${reportTo}.${format}`;
+      link.click();
+      URL.revokeObjectURL(url);
+      setActionLog("Đã xuất file Excel từ dữ liệu MongoDB.");
+    } catch {
+      setActionLog("Không kết nối được API xuất báo cáo.");
     }
   }
 
@@ -522,10 +1134,24 @@ export default function Home() {
                     Mật khẩu
                     <input name="password" defaultValue="admin" type="password" />
                   </label>
+                  <label>
+                    Mã 2FA
+                    <input name="twoFactorCode" placeholder="Nhập nếu tài khoản đã bật 2FA" />
+                  </label>
                   {authError && <p className="form-error">{authError}</p>}
                   <button className="full-button" type="submit">
                     <LogIn size={18} />
                     Vào hệ thống
+                  </button>
+                  <button
+                    className="secondary-button full-button"
+                    onClick={() => {
+                      window.location.href = `${apiBaseUrl}/auth/google`;
+                    }}
+                    type="button"
+                  >
+                    <LogIn size={18} />
+                    Đăng nhập với Google
                   </button>
                   <button className="link-button" onClick={() => setMode("forgot")} type="button">
                     Quên mật khẩu / gửi OTP
@@ -560,12 +1186,7 @@ export default function Home() {
                 </form>
               )}
               {mode === "forgot" && (
-                <form
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    setAuthError("OTP email đang chờ cấu hình SMTP thật.");
-                  }}
-                >
+                <form onSubmit={handleForgotPassword}>
                   <label>
                     Email nhận OTP
                     <input name="email" placeholder="email@example.com" required type="email" />
@@ -573,6 +1194,10 @@ export default function Home() {
                   <label>
                     Mã OTP
                     <input name="otp" placeholder="123456" />
+                  </label>
+                  <label>
+                    Mật khẩu mới
+                    <input name="password" placeholder="Tối thiểu 6 ký tự" type="password" />
                   </label>
                   {authError && <p className="form-info">{authError}</p>}
                   <button className="full-button" type="submit">
@@ -758,6 +1383,8 @@ export default function Home() {
                       <th>AI biển vào</th>
                       <th>Trạng thái</th>
                       <th>Match</th>
+                      <th>Xác minh</th>
+                      <th>Thanh toán</th>
                       <th>Điểm ảnh xe</th>
                       <th>Phí</th>
                       <th></th>
@@ -784,10 +1411,47 @@ export default function Home() {
                             {session.matchStatus || "Chưa checkout"}
                           </span>
                         </td>
-                        <td>{session.vehicleMatchScore ? `${session.vehicleMatchScore}%` : "Chưa có"}</td>
-                        <td>{session.fee ? currency.format(session.fee) : "Chưa tính"}</td>
                         <td>
-                          {session.status === "Đang gửi" && currentUser.role !== "customer" ? (
+                          <span className={session.verificationStatus === "Chờ duyệt" ? "badge warning" : "badge"}>
+                            {session.verificationStatus || "Không cần"}
+                          </span>
+                        </td>
+                        <td>
+                          <span className={session.paymentStatus === "paid" ? "badge success" : "badge warning"}>
+                            {session.paymentStatus === "paid"
+                              ? "Đã thanh toán"
+                              : session.paymentStatus === "pending"
+                                ? "Chờ xác nhận"
+                                : "Chưa thanh toán"}
+                          </span>
+                        </td>
+                        <td>{session.vehicleMatchScore ? `${session.vehicleMatchScore}%` : "Chưa có"}</td>
+                        <td>
+                          <strong>
+                            {session.feeBreakdown || session.status === "Đã hoàn thành"
+                              ? currency.format(session.fee)
+                              : "Chưa tính"}
+                          </strong>
+                          {session.feeBreakdown && (
+                            <span className="muted-cell">
+                              {session.feeBreakdown.totalMinutes} phút, {session.feeBreakdown.billableHours} giờ tính phí
+                            </span>
+                          )}
+                        </td>
+                        <td>
+                          {session.verificationStatus === "Chờ duyệt" && currentUser.role === "admin" ? (
+                            <button
+                              className="small-button"
+                              onClick={() => approveCheckout(session.id, session.exitDetectedPlate || session.plate)}
+                              type="button"
+                            >
+                              Duyệt
+                            </button>
+                          ) : session.status === "Đã hoàn thành" && session.fee > 0 && session.paymentStatus !== "paid" ? (
+                            <button className="small-button" onClick={() => createPaymentForSession(session.id)} type="button">
+                              QR
+                            </button>
+                          ) : session.status === "Đang gửi" && currentUser.role !== "customer" ? (
                             <button className="small-button" onClick={() => setExitSessionId(session.id)} type="button">
                               Chọn checkout
                             </button>
@@ -919,25 +1583,44 @@ export default function Home() {
             <div className="panel">
               <div className="panel-heading">
                 <div>
-                  <p>Số dư ví</p>
-                  <h2>{currency.format(currentUser.wallet || 520000)}</h2>
+                  <p>VietQR</p>
+                  <h2>{paymentConfigState.bankName}</h2>
                 </div>
-                <Wallet size={22} />
+                <QrCode size={22} />
               </div>
-              <div className="action-grid">
-                <button onClick={() => simulateAction("Đã tạo yêu cầu nạp ví. Cần cấu hình cổng thanh toán để xác nhận thật.")} type="button">
-                  <Plus size={18} />
-                  Nạp ví
-                </button>
-                <button onClick={() => simulateAction("VietQR đang chờ thông tin ngân hàng test.")} type="button">
-                  <QrCode size={18} />
-                  VietQR
-                </button>
-                <button onClick={() => simulateAction("Kiểm tra thanh toán đang chờ tích hợp provider thật.")} type="button">
-                  <RefreshCcw size={18} />
-                  Kiểm tra
-                </button>
-              </div>
+              {currentUser.role === "admin" ? (
+                <form className="stack-form" key={paymentConfigState.id} onSubmit={updatePaymentConfig}>
+                  <label>
+                    Ngân hàng
+                    <input defaultValue={paymentConfigState.bankName} name="bankName" required />
+                  </label>
+                  <label>
+                    BIN ngân hàng
+                    <input defaultValue={paymentConfigState.bankBin} name="bankBin" required />
+                  </label>
+                  <label>
+                    Số tài khoản
+                    <input defaultValue={paymentConfigState.accountNumber} name="accountNumber" required />
+                  </label>
+                  <label>
+                    Chủ tài khoản
+                    <input defaultValue={paymentConfigState.accountName} name="accountName" required />
+                  </label>
+                  <label>
+                    Tiền tố nội dung
+                    <input defaultValue={paymentConfigState.transferPrefix} name="transferPrefix" required />
+                  </label>
+                  <button className="full-button" type="submit">
+                    <Settings size={18} />
+                    Lưu VietQR
+                  </button>
+                </form>
+              ) : (
+                <div className="profile-lines">
+                  <span>Số dư ví: {currency.format(currentUser.wallet || 0)}</span>
+                  <span>Nội dung chuyển khoản dùng theo từng phiên gửi xe.</span>
+                </div>
+              )}
             </div>
             <div className="panel wide">
               <div className="panel-heading">
@@ -948,13 +1631,34 @@ export default function Home() {
                 <CreditCard size={22} />
               </div>
               <DataTable
-                headers={["Mã", "Phương thức", "Số tiền", "Trạng thái", "Thời gian"]}
-                rows={transactions.map((item) => [
+                headers={["Mã", "Phương thức", "Số tiền", "Trạng thái", "Nội dung", "QR", "Thao tác"]}
+                rows={(transactionList.length ? transactionList : transactions.map((item) => ({
+                  id: item.id,
+                  method: item.method,
+                  amount: item.amount,
+                  status: item.status === "Thành công" ? "paid" : "pending",
+                  content: item.id,
+                  createdAt: item.time,
+                } as TransactionItem))).map((item) => [
                   item.id,
                   item.method,
                   currency.format(item.amount),
                   item.status,
-                  item.time,
+                  item.content,
+                  item.qrUrl ? (
+                    <a className="small-button" href={item.qrUrl} key={`${item.id}-qr`} rel="noreferrer" target="_blank">
+                      QR
+                    </a>
+                  ) : (
+                    "Không có"
+                  ),
+                  item.status === "pending" && currentUser.role === "admin" ? (
+                    <button className="small-button" key={item.id} onClick={() => confirmTransaction(item.id)} type="button">
+                      Xác nhận
+                    </button>
+                  ) : (
+                    "OK"
+                  ),
                 ])}
               />
             </div>
@@ -971,14 +1675,7 @@ export default function Home() {
                 </div>
                 <Bell size={22} />
               </div>
-              <form
-                className="stack-form"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  simulateAction("Đã ghi nhận phản hồi khách hàng trên giao diện. Cần API lưu phản hồi để hoàn chỉnh.");
-                  event.currentTarget.reset();
-                }}
-              >
+              <form className="stack-form" onSubmit={createFeedback}>
                 <label>
                   Chủ đề
                   <input name="subject" placeholder="Ví dụ: nhầm phí gửi xe" required />
@@ -992,22 +1689,67 @@ export default function Home() {
                 </button>
               </form>
             </div>
-            <ModuleList
-              icon={<ReceiptText size={22} />}
-              kicker="Lịch sử"
-              title="Phản hồi đã gửi"
-              items={["Yêu cầu miễn phạt PX-1024 - Đang xử lý", "Góp ý khu B thiếu biển chỉ dẫn - Đã tiếp nhận"]}
-            />
+            <div className="panel wide">
+              <div className="panel-heading">
+                <div>
+                  <p>Lịch sử</p>
+                  <h2>Phản hồi đã gửi</h2>
+                </div>
+                <ReceiptText size={22} />
+              </div>
+              <DataTable
+                headers={["Chủ đề", "Nội dung", "Trạng thái", "Phản hồi", "Thao tác"]}
+                rows={feedbackList.map((item) => [
+                  item.subject,
+                  item.content,
+                  item.status,
+                  item.response || "Chưa có",
+                  currentUser.role === "admin" && item.status !== "Đã phản hồi" ? (
+                    <button className="small-button" key={item.id} onClick={() => updateFeedbackStatus(item.id)} type="button">
+                      Phản hồi
+                    </button>
+                  ) : (
+                    "OK"
+                  ),
+                ])}
+              />
+            </div>
           </section>
         )}
 
         {activeView === "notifications" && (
-          <ModuleList
-            icon={<Bell size={22} />}
-            kicker="Thông báo"
-            title="Đăng ký, xe ra, phạt, số dư thấp, khuyến mãi"
-            items={notifications}
-          />
+          <div className="panel">
+            <div className="panel-heading">
+              <div>
+                <p>Thông báo</p>
+                <h2>Đăng ký, xe ra, thanh toán, OCR</h2>
+              </div>
+              <Bell size={22} />
+            </div>
+            <DataTable
+              headers={["Tiêu đề", "Nội dung", "Trạng thái", "Thao tác"]}
+              rows={(notificationList.length
+                ? notificationList
+                : notifications.map((content, index) => ({
+                    id: String(index),
+                    title: "Demo",
+                    content,
+                    read: false,
+                    createdAt: "",
+                  }))).map((item) => [
+                item.title,
+                item.content,
+                item.read ? "Đã đọc" : "Mới",
+                item.read ? (
+                  "OK"
+                ) : (
+                  <button className="small-button" key={item.id} onClick={() => markNotificationRead(item.id)} type="button">
+                    Đã đọc
+                  </button>
+                ),
+              ])}
+            />
+          </div>
         )}
 
         {activeView === "shifts" && (
@@ -1019,19 +1761,37 @@ export default function Home() {
               </div>
               <CalendarDays size={22} />
             </div>
-            <div className="action-row">
-              <button onClick={() => simulateAction("Đã bắt đầu ca làm việc trên giao diện. Cần API ca làm để lưu lâu dài.")} type="button">
+            <form className="action-row" onSubmit={startShift}>
+              <input name="name" placeholder="Tên ca làm" required />
+              <input name="note" placeholder="Ghi chú" />
+              <button type="submit">
                 <Clock3 size={18} />
                 Bắt đầu ca
               </button>
-              <button onClick={() => simulateAction("Đã kết thúc ca trên giao diện. Cần API báo cáo ca để lưu lâu dài.")} type="button">
-                <ReceiptText size={18} />
-                Kết thúc ca
-              </button>
-            </div>
+            </form>
             <DataTable
-              headers={["Ca", "Nhân viên", "Thời gian", "Trạng thái"]}
-              rows={shiftRows.map((item) => [item.name, item.staff, item.time, item.status])}
+              headers={["Ca", "Bắt đầu", "Kết thúc", "Trạng thái", "Thao tác"]}
+              rows={(shiftList.length
+                ? shiftList
+                : shiftRows.map((item, index) => ({
+                    id: String(index),
+                    name: item.name,
+                    startAt: item.time,
+                    endAt: "",
+                    status: item.status === "Đang làm" ? "Đang làm" : "Đã kết thúc",
+                  } as ShiftItem))).map((item) => [
+                item.name,
+                new Date(item.startAt).toString() === "Invalid Date" ? item.startAt : new Date(item.startAt).toLocaleString("vi-VN"),
+                item.endAt ? new Date(item.endAt).toLocaleString("vi-VN") : "Chưa kết thúc",
+                item.status,
+                item.status === "Đang làm" && shiftList.length ? (
+                  <button className="small-button" key={item.id} onClick={() => endShift(item.id)} type="button">
+                    Kết thúc
+                  </button>
+                ) : (
+                  "OK"
+                ),
+              ])}
             />
           </div>
         )}
@@ -1046,21 +1806,20 @@ export default function Home() {
                 </div>
                 <CircleAlert size={22} />
               </div>
-              <form
-                className="stack-form"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  simulateAction("Đã tạo báo cáo sự cố trên giao diện. Cần API sự cố để lưu lâu dài.");
-                  event.currentTarget.reset();
-                }}
-              >
+              <form className="stack-form" onSubmit={createIncident}>
                 <label>
                   Loại sự cố
                   <select name="type">
                     <option>Xe blacklist</option>
                     <option>Lỗi nhận dạng</option>
                     <option>Yêu cầu miễn phạt</option>
+                    <option>Camera offline</option>
+                    <option>Khác</option>
                   </select>
+                </label>
+                <label>
+                  Biển số
+                  <input name="plate" placeholder="Nếu có" />
                 </label>
                 <label>
                   Ghi chú
@@ -1071,12 +1830,31 @@ export default function Home() {
                 </button>
               </form>
             </div>
-            <ModuleList
-              icon={<Ban size={22} />}
-              kicker="Xử lý"
-              title="Hàng đợi sự cố"
-              items={["30K-999.99 thuộc blacklist - Cần xác minh", "PX-1021 xin miễn phạt quá hạn", "Camera B offline"]}
-            />
+            <div className="panel wide">
+              <div className="panel-heading">
+                <div>
+                  <p>Xử lý</p>
+                  <h2>Hàng đợi sự cố</h2>
+                </div>
+                <Ban size={22} />
+              </div>
+              <DataTable
+                headers={["Loại", "Biển số", "Ghi chú", "Trạng thái", "Thao tác"]}
+                rows={incidentList.map((item) => [
+                  item.type,
+                  item.plate || "Không có",
+                  item.note,
+                  item.status,
+                  item.status !== "Đã xử lý" && currentUser.role === "admin" ? (
+                    <button className="small-button" key={item.id} onClick={() => resolveIncident(item.id)} type="button">
+                      Xử lý
+                    </button>
+                  ) : (
+                    "OK"
+                  ),
+                ])}
+              />
+            </div>
           </section>
         )}
 
@@ -1115,67 +1893,229 @@ export default function Home() {
         )}
 
         {activeView === "devices" && (
-          <div className="panel">
-            <div className="panel-heading">
-              <div>
-                <p>Thiết bị</p>
-                <h2>Camera, ROI, trạng thái kết nối</h2>
+          <section className="content-grid">
+            <div className="panel">
+              <div className="panel-heading">
+                <div>
+                  <p>Thiết bị</p>
+                  <h2>Cấu hình camera RTSP</h2>
+                </div>
+                <Camera size={22} />
               </div>
-              <Camera size={22} />
+              <form className="stack-form" onSubmit={saveDevice}>
+                <label>
+                  Tên camera
+                  <input name="name" placeholder="Camera cổng vào" required />
+                </label>
+                <label>
+                  Cổng
+                  <select name="gate">
+                    <option value="entry">Cổng vào</option>
+                    <option value="exit">Cổng ra</option>
+                  </select>
+                </label>
+                <label>
+                  RTSP/HTTP URL
+                  <input name="rtspUrl" placeholder="rtsp://..." required />
+                </label>
+                <label>
+                  Username
+                  <input name="username" />
+                </label>
+                <label>
+                  Password
+                  <input name="password" type="password" />
+                </label>
+                <label>
+                  ROI
+                  <input name="roiNote" placeholder="Biển số trước/sau" />
+                </label>
+                <button className="full-button" type="submit">
+                  <Wrench size={18} />
+                  Lưu camera
+                </button>
+              </form>
             </div>
-            <div className="action-row">
-              <button onClick={() => simulateAction("Restart thiết bị đang chờ tích hợp RTSP/device API thật.")} type="button">
-                <RefreshCcw size={18} />
-                Restart thiết bị
-              </button>
-              <button onClick={() => simulateAction("Đã lưu cấu hình ROI camera. Cần RTSP thật để kiểm tra live.")} type="button">
-                <Wrench size={18} />
-                Cấu hình ROI
-              </button>
+            <div className="panel wide">
+              <div className="panel-heading">
+                <div>
+                  <p>RTSP</p>
+                  <h2>Trạng thái và snapshot</h2>
+                </div>
+                <RefreshCcw size={22} />
+              </div>
+              <DataTable
+                headers={["Thiết bị", "Cổng", "Trạng thái", "Ảnh gần nhất", "ROI", "Thao tác"]}
+                rows={(deviceList.length
+                  ? deviceList
+                  : devices.map((item, index) => ({
+                      id: String(index),
+                      name: item.name,
+                      gate: index === 0 ? "entry" : "exit",
+                      rtspUrl: "",
+                      status: "unknown",
+                      lastSnapshotUrl: "",
+                      roiNote: item.roi,
+                    } as DeviceItem))).map((item) => [
+                  item.name,
+                  item.gate === "entry" ? "Vào" : "Ra",
+                  item.status,
+                  item.lastSnapshotUrl ? (
+                    <a href={item.lastSnapshotUrl} key={`${item.id}-shot`} rel="noreferrer" target="_blank">
+                      Xem ảnh
+                    </a>
+                  ) : (
+                    "Chưa có"
+                  ),
+                  item.roiNote || "Chưa có",
+                  <div className="inline-actions" key={item.id}>
+                    {deviceList.length ? (
+                      <button className="small-button" onClick={() => snapshotDevice(item.id)} type="button">
+                        Snapshot
+                      </button>
+                    ) : null}
+                    {item.gate === "entry" && deviceList.length ? (
+                      <button className="small-button" onClick={() => cameraEntry(item.id)} type="button">
+                        Xe vào
+                      </button>
+                    ) : null}
+                    {item.gate === "exit" && deviceList.length ? (
+                      <button className="small-button" onClick={() => cameraExit(item.id)} type="button">
+                        Xe ra
+                      </button>
+                    ) : null}
+                  </div>,
+                ])}
+              />
             </div>
-            <DataTable
-              headers={["Thiết bị", "Trạng thái", "Ảnh gần nhất", "ROI"]}
-              rows={devices.map((item) => [item.name, item.status, item.lastShot, item.roi])}
-            />
-          </div>
+          </section>
         )}
 
         {activeView === "pricing" && (
           <section className="content-grid">
-            <PricingCard title="Miễn phí" price={`${parkingConfig.freeMinutes} phút đầu`} note="Sau thời gian miễn phí mới tính phí theo bảng giá thật" />
-            <PricingCard title="Sức chứa" price={`${parkingConfig.totalCapacity} chỗ`} note="Khu A/B/C, mỗi khu 10 ô tô" />
-            <PricingCard title="Bảng giá" price="Chưa chốt" note="Dũng chưa gửi giá theo giờ/đêm/tháng và mức phạt quá hạn" />
+            <div className="panel">
+              <div className="panel-heading">
+                <div>
+                  <p>Admin</p>
+                  <h2>Cấu hình bảng giá</h2>
+                </div>
+                <Settings size={22} />
+              </div>
+              <form className="stack-form" key={pricingConfigState.updatedAt || pricingConfigState.id} onSubmit={updatePricing}>
+                <label>
+                  Phút miễn phí
+                  <input defaultValue={pricingConfigState.freeMinutes} min={0} name="freeMinutes" required type="number" />
+                </label>
+                <label>
+                  Giá theo giờ
+                  <input defaultValue={pricingConfigState.hourlyRate} min={0} name="hourlyRate" required type="number" />
+                </label>
+                <label>
+                  Giá qua đêm
+                  <input defaultValue={pricingConfigState.overnightRate} min={0} name="overnightRate" required type="number" />
+                </label>
+                <label>
+                  Gói tháng
+                  <input defaultValue={pricingConfigState.monthlyRate} min={0} name="monthlyRate" required type="number" />
+                </label>
+                <label>
+                  Phạt quá hạn
+                  <input defaultValue={pricingConfigState.overdueFineRate} min={0} name="overdueFineRate" required type="number" />
+                </label>
+                <button className="full-button" type="submit">
+                  <Settings size={18} />
+                  Lưu bảng giá
+                </button>
+              </form>
+            </div>
+            <div className="panel wide">
+              <div className="panel-heading">
+                <div>
+                  <p>Bảng giá hiện tại</p>
+                  <h2>Áp dụng khi checkout</h2>
+                </div>
+                <ReceiptText size={22} />
+              </div>
+              <DataTable
+                headers={["Hạng mục", "Giá trị"]}
+                rows={[
+                  ["Miễn phí đầu", `${pricingConfigState.freeMinutes} phút`],
+                  ["Theo giờ", currency.format(pricingConfigState.hourlyRate)],
+                  ["Qua đêm", currency.format(pricingConfigState.overnightRate)],
+                  ["Gói tháng", currency.format(pricingConfigState.monthlyRate)],
+                  ["Phạt quá hạn", currency.format(pricingConfigState.overdueFineRate)],
+                  ["Sức chứa", `${parkingConfig.totalCapacity} chỗ, khu A/B/C`],
+                ]}
+              />
+            </div>
           </section>
         )}
 
         {activeView === "reports" && (
           <section className="dashboard">
-            <Dashboard
-              active={stats.active}
-              available={stats.available}
-              completion={stats.completion}
-              revenue={stats.revenue}
-              reportsOnly
-            />
             <div className="panel">
               <div className="panel-heading">
                 <div>
-                  <p>Xuất báo cáo</p>
-                  <h2>PDF / Excel</h2>
+                  <p>Báo cáo</p>
+                  <h2>Doanh thu và lượt xe</h2>
                 </div>
                 <FileDown size={22} />
               </div>
+              <div className="report-filters">
+                <label>
+                  Từ ngày
+                  <input onChange={(event) => setReportFrom(event.target.value)} type="date" value={reportFrom} />
+                </label>
+                <label>
+                  Đến ngày
+                  <input onChange={(event) => setReportTo(event.target.value)} type="date" value={reportTo} />
+                </label>
+              </div>
               <div className="action-grid">
-                <button onClick={() => simulateAction("Chức năng xuất doanh thu đang chờ mẫu báo cáo thật.")} type="button">
+                <button onClick={() => loadReportSummary(reportFrom, reportTo)} type="button">
+                  <RefreshCcw size={18} />
+                  Tải lại
+                </button>
+                <button onClick={() => downloadReport("sessions")} type="button">
+                  <FileDown size={18} />
+                  Phiên đỗ xe
+                </button>
+                <button onClick={() => downloadReport("revenue")} type="button">
+                  <FileDown size={18} />
                   Doanh thu
                 </button>
-                <button onClick={() => simulateAction("Chức năng xuất thống kê đang chờ mẫu báo cáo thật.")} type="button">
-                  Thống kê bãi
-                </button>
-                <button onClick={() => simulateAction("Chức năng xuất phạt/ví đang chờ mẫu báo cáo thật.")} type="button">
-                  Phạt / ví
+                <button onClick={() => downloadReport("revenue", "pdf")} type="button">
+                  <FileDown size={18} />
+                  PDF
                 </button>
               </div>
+            </div>
+            <div className="metric-grid">
+              <Metric icon={<Car />} label="Xe vào" value={String(reportSummary?.entryCount ?? 0)} />
+              <Metric icon={<ReceiptText />} label="Xe ra" value={String(reportSummary?.exitCount ?? 0)} />
+              <Metric icon={<ParkingCircle />} label="Đang gửi" value={String(reportSummary?.activeCount ?? stats.active)} />
+              <Metric icon={<CreditCard />} label="Doanh thu" value={currency.format(reportSummary?.revenue ?? 0)} />
+            </div>
+            <div className="panel">
+              <div className="panel-heading">
+                <div>
+                  <p>Chi tiết</p>
+                  <h2>Phiên miễn phí và có phí</h2>
+                </div>
+                <BarChart3 size={22} />
+              </div>
+              <DataTable
+                headers={["Khoảng ngày", "Phiên miễn phí", "Phiên có phí", "Tổng phiên ra", "Doanh thu"]}
+                rows={[
+                  [
+                    reportSummary ? `${reportSummary.from} - ${reportSummary.to}` : `${reportFrom} - ${reportTo}`,
+                    String(reportSummary?.freeSessionCount ?? 0),
+                    String(reportSummary?.paidSessionCount ?? 0),
+                    String(reportSummary?.exitCount ?? 0),
+                    currency.format(reportSummary?.revenue ?? 0),
+                  ],
+                ]}
+              />
             </div>
           </section>
         )}
@@ -1191,25 +2131,63 @@ export default function Home() {
                 <KeyRound size={22} />
               </div>
               <div className="action-grid">
-                <button onClick={() => simulateAction("OTP email đang chờ cấu hình SMTP thật.")} type="button">
+                <button onClick={() => setMode("forgot")} type="button">
                   <Mail size={18} />
-                  Gửi OTP
+                  Reset OTP
                 </button>
-                <button onClick={() => simulateAction("2FA admin đang chờ triển khai xác thực thật.")} type="button">
-                  <Smartphone size={18} />
-                  Bật 2FA
-                </button>
-                <button onClick={() => simulateAction("Đã thu hồi phiên hoạt động hiện tại qua cookie JWT.")} type="button">
+                {currentUser.role === "admin" && (
+                  <button onClick={setupTwoFactor} type="button">
+                    <Smartphone size={18} />
+                    Tạo QR 2FA
+                  </button>
+                )}
+                <button
+                  onClick={async () => {
+                    await apiFetch("/auth/logout", { method: "POST" });
+                    setCurrentUser(null);
+                    setActionLog("Đã thu hồi phiên hoạt động hiện tại.");
+                  }}
+                  type="button"
+                >
                   <LogOut size={18} />
                   Thu hồi phiên
                 </button>
               </div>
+              {twoFactorQr && (
+                <div className="qr-panel">
+                  <Image alt="QR 2FA" height={220} src={twoFactorQr} unoptimized width={220} />
+                  <form className="stack-form" onSubmit={verifyTwoFactor}>
+                    <label>
+                      Mã 2FA
+                      <input name="code" placeholder="123456" required />
+                    </label>
+                    <button className="full-button" type="submit">
+                      Bật 2FA
+                    </button>
+                  </form>
+                </div>
+              )}
+              {currentUser.role === "admin" && currentUser.twoFactorEnabled && (
+                <form className="stack-form" onSubmit={disableTwoFactor}>
+                  <label>
+                    Mã 2FA để tắt
+                    <input name="code" placeholder="123456" required />
+                  </label>
+                  <button className="full-button" type="submit">
+                    Tắt 2FA
+                  </button>
+                </form>
+              )}
             </div>
             <ModuleList
               icon={<CheckCircle2 size={22} />}
               kicker="Phiên"
               title="Quản lý phiên hoạt động"
-              items={["JWT cookie httpOnly", "Đăng nhập gần nhất: trình duyệt hiện tại", "Google OAuth: chờ client ID"]}
+              items={[
+                "JWT cookie httpOnly",
+                `2FA admin: ${currentUser.twoFactorEnabled ? "Đã bật" : "Chưa bật"}`,
+                `Google OAuth: ${currentUser.provider === "google" || currentUser.provider === "mixed" ? "Đã liên kết" : "Sẵn sàng"}`,
+              ]}
             />
           </section>
         )}
@@ -1362,22 +2340,6 @@ function ModuleList({
           </div>
         ))}
       </div>
-    </div>
-  );
-}
-
-function PricingCard({ title, price, note }: { title: string; price: string; note: string }) {
-  return (
-    <div className="panel">
-      <div className="panel-heading">
-        <div>
-          <p>Cấu hình</p>
-          <h2>{title}</h2>
-        </div>
-        <Settings size={22} />
-      </div>
-      <strong className="price-text">{price}</strong>
-      <p className="muted-text">{note}</p>
     </div>
   );
 }

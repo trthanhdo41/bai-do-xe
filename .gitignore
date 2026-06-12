@@ -53,4 +53,5 @@ next-env.d.ts
 
 # internal markdown docs
 *.md
+!README.md
 !Tài liệu dev.md

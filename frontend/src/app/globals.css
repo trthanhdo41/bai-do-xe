@@ -295,9 +295,15 @@ th {
 }
 
 .demo-accounts span,
-.muted-text {
+.muted-text,
+.muted-cell {
   color: var(--muted);
   font-size: 14px;
+}
+
+.muted-cell {
+  display: block;
+  margin-top: 4px;
 }
 
 .demo-accounts code {
@@ -450,16 +456,43 @@ th {
 }
 
 .action-row,
-.action-grid {
+.action-grid,
+.report-filters {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
   margin-bottom: 18px;
 }
 
+.inline-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.qr-panel {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+  padding-top: 18px;
+}
+
+.qr-panel img {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  max-width: 220px;
+  width: 100%;
+}
+
 .action-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.report-filters {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
 }
 
 .action-row button,
@@ -696,6 +729,10 @@ th {
   }
 
   .action-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .report-filters {
     grid-template-columns: 1fr;
   }
 

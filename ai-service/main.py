@@ -1,10 +1,14 @@
+import base64
 import re
 import tempfile
 from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
 
+import cv2
 import pytesseract
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from PIL import Image, ImageFilter, ImageOps
+from pydantic import BaseModel
 
 app = FastAPI(title="Bãi Đỗ Xe AI Service")
 
@@ -15,6 +19,12 @@ PLATE_PATTERNS = [
 ]
 
 
+class SnapshotRequest(BaseModel):
+    rtspUrl: str
+    username: str | None = None
+    password: str | None = None
+
+
 def normalize_plate(value: str) -> str:
     return re.sub(r"[^A-Z0-9]", "", value.upper())
 
@@ -22,8 +32,18 @@ def normalize_plate(value: str) -> str:
 def format_plate(value: str) -> str:
     normalized = normalize_plate(value)
     if len(normalized) >= 8:
-      return normalized
+        return normalized
     return value.upper().strip()
+
+
+def camera_url(value: str, username: str | None, password: str | None) -> str:
+    if not username:
+        return value
+    parts = urlsplit(value)
+    if "@" in parts.netloc:
+        return value
+    auth = username if password is None else f"{username}:{password}"
+    return urlunsplit((parts.scheme, f"{auth}@{parts.netloc}", parts.path, parts.query, parts.fragment))
 
 
 def preprocess_variants(image: Image.Image) -> list[Image.Image]:
@@ -116,3 +136,24 @@ async def detect(file: UploadFile = File(...)):
         temp_path.unlink(missing_ok=True)
 
     return result
+
+
+@app.post("/snapshot")
+def snapshot(request: SnapshotRequest):
+    capture = cv2.VideoCapture(camera_url(request.rtspUrl, request.username, request.password))
+    if not capture.isOpened():
+        raise HTTPException(status_code=502, detail="Không mở được camera RTSP/HTTP.")
+
+    ok, frame = capture.read()
+    capture.release()
+    if not ok or frame is None:
+        raise HTTPException(status_code=502, detail="Không đọc được frame từ camera.")
+
+    encoded_ok, encoded = cv2.imencode(".jpg", frame)
+    if not encoded_ok:
+        raise HTTPException(status_code=500, detail="Không mã hóa được ảnh snapshot.")
+
+    return {
+        "imageBase64": base64.b64encode(encoded.tobytes()).decode("ascii"),
+        "contentType": "image/jpeg",
+    }
