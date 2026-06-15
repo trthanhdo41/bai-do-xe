@@ -386,15 +386,22 @@ th {
   gap: 8px;
 }
 
-.sidebar button {
+.sidebar button,
+.sidebar a {
   background: transparent;
   color: #d0d5dd;
   justify-content: flex-start;
   width: 100%;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .sidebar button.active,
-.sidebar button:hover {
+.sidebar button:hover,
+.sidebar a.active,
+.sidebar a:hover {
   background: rgba(255, 255, 255, 0.1);
   color: #fff;
 }

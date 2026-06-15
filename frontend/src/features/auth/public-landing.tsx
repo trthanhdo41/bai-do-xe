@@ -1,0 +1,204 @@
+"use client";
+
+import {
+  Car,
+  Camera,
+  CheckCircle2,
+  Clock3,
+  LogIn,
+  Mail,
+  ParkingCircle,
+  Plus,
+  UserRound,
+} from "lucide-react";
+
+import { Metric } from "@/components/ui/metric";
+import { useParkingApp } from "@/context/parking-app-context";
+import { apiBaseUrl } from "@/lib/constants";
+import { parkingConfig } from "@/lib/parking-config";
+
+export function AuthPanel() {
+  const { mode, setMode, authError, handleLogin, handleRegister, handleForgotPassword } = useParkingApp();
+
+  return (
+    <div className="auth-panel">
+      <div className="segmented">
+        <button className={mode === "login" ? "active" : ""} onClick={() => setMode("login")} type="button">
+          Đăng nhập
+        </button>
+        <button className={mode === "register" ? "active" : ""} onClick={() => setMode("register")} type="button">
+          Đăng ký
+        </button>
+      </div>
+      {mode === "login" && (
+        <form onSubmit={handleLogin}>
+          <label>
+            Email
+            <input name="email" defaultValue="admin@ipark.vn" type="email" />
+          </label>
+          <label>
+            Mật khẩu
+            <input name="password" defaultValue="admin" type="password" />
+          </label>
+          <label>
+            Mã 2FA
+            <input name="twoFactorCode" placeholder="Nhập nếu tài khoản đã bật 2FA" />
+          </label>
+          {authError && <p className="form-error">{authError}</p>}
+          <button className="full-button" type="submit">
+            <LogIn size={18} />
+            Vào hệ thống
+          </button>
+          <button
+            className="secondary-button full-button"
+            onClick={() => {
+              window.location.href = `${apiBaseUrl}/auth/google`;
+            }}
+            type="button"
+          >
+            <LogIn size={18} />
+            Đăng nhập với Google
+          </button>
+          <button className="link-button" onClick={() => setMode("forgot")} type="button">
+            Quên mật khẩu / gửi OTP
+          </button>
+          <div className="demo-accounts">
+            <span>Tài khoản:</span>
+            <code>admin@ipark.vn / admin</code>
+            <code>nv.1@ipark.vn / 123456</code>
+            <code>nv.2@ipark.vn / 123456</code>
+            <code>nv.3@ipark.vn / 123456</code>
+          </div>
+        </form>
+      )}
+      {mode === "register" && (
+        <form onSubmit={handleRegister}>
+          <label>
+            Họ tên
+            <input name="name" placeholder="Nhập họ tên" required />
+          </label>
+          <label>
+            Email
+            <input name="email" placeholder="email@example.com" required type="email" />
+          </label>
+          <label>
+            Mật khẩu
+            <input name="password" placeholder="Tối thiểu 6 ký tự" required type="password" />
+          </label>
+          <button className="full-button" type="submit">
+            <Plus size={18} />
+            Tạo tài khoản
+          </button>
+        </form>
+      )}
+      {mode === "forgot" && (
+        <form onSubmit={handleForgotPassword}>
+          <label>
+            Email nhận OTP
+            <input name="email" placeholder="email@example.com" required type="email" />
+          </label>
+          <label>
+            Mã OTP
+            <input name="otp" placeholder="123456" />
+          </label>
+          <label>
+            Mật khẩu mới
+            <input name="password" placeholder="Tối thiểu 6 ký tự" type="password" />
+          </label>
+          {authError && <p className="form-info">{authError}</p>}
+          <button className="full-button" type="submit">
+            <Mail size={18} />
+            Gửi / xác minh OTP
+          </button>
+          <button className="link-button" onClick={() => setMode("login")} type="button">
+            Quay lại đăng nhập
+          </button>
+        </form>
+      )}
+    </div>
+  );
+}
+
+export function PublicLanding() {
+  const { stats, setMode } = useParkingApp();
+
+  return (
+    <main className="public-shell">
+      <section className="hero">
+        <nav className="topbar">
+          <div className="brand">
+            <ParkingCircle size={28} />
+            <span>{parkingConfig.brandName}</span>
+          </div>
+          <div className="top-actions">
+            <a href="#contact">Liên hệ</a>
+            <button onClick={() => setMode("login")} type="button">
+              <LogIn size={16} />
+              Đăng nhập
+            </button>
+          </div>
+        </nav>
+
+        <div className="hero-grid">
+          <div className="hero-copy">
+            <span className="eyebrow">Hệ thống quản lý bãi đỗ xe</span>
+            <h1>{parkingConfig.brandName}</h1>
+            <p>
+              Theo dõi 30 chỗ đỗ ô tô khu A/B/C, ghi nhận xe vào/ra bằng ảnh, tính phí sau
+              {` ${parkingConfig.freeMinutes} phút miễn phí`} và phân quyền vận hành.
+            </p>
+            <div className="status-strip">
+              <div>
+                <span>Đang gửi</span>
+                <strong>{stats.active} xe</strong>
+              </div>
+              <div>
+                <span>Còn trống</span>
+                <strong>{stats.available} chỗ</strong>
+              </div>
+              <div>
+                <span>Camera</span>
+                <strong>2 cổng</strong>
+              </div>
+            </div>
+            <div className="hero-actions">
+              <button onClick={() => setMode("login")} type="button">
+                <LogIn size={18} />
+                Dùng tài khoản iPARK
+              </button>
+              <button className="secondary-button" onClick={() => setMode("register")} type="button">
+                <UserRound size={18} />
+                Đăng ký khách hàng
+              </button>
+            </div>
+          </div>
+
+          <AuthPanel />
+        </div>
+      </section>
+
+      <section className="public-section">
+        <div>
+          <span className="section-kicker">Tình trạng bãi xe</span>
+          <h2>{parkingConfig.totalCapacity} vị trí ô tô, chia khu A/B/C</h2>
+        </div>
+        <div className="metric-grid">
+          <Metric icon={<Car />} label="Xe đang gửi" value={String(stats.active)} />
+          <Metric icon={<CheckCircle2 />} label="Chỗ còn trống" value={String(stats.available)} />
+          <Metric icon={<Camera />} label="Camera cấu hình" value="2 cổng" />
+          <Metric icon={<Clock3 />} label="Miễn phí đầu" value={`${parkingConfig.freeMinutes} phút`} />
+        </div>
+      </section>
+
+      <section className="public-section compact" id="contact">
+        <div>
+          <span className="section-kicker">Liên hệ</span>
+          <h2>Ban quản lý bãi đỗ xe</h2>
+        </div>
+        <p>
+          Email: {parkingConfig.contactEmail} - Hotline: {parkingConfig.hotline} - Địa chỉ: {parkingConfig.address}
+        </p>
+      </section>
+    </main>
+  );
+}

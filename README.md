@@ -14,7 +14,7 @@ Khuyến nghị:
 
 - Node.js `20.19+`
 - npm `10+`
-- Python `3.10+`
+- Python `3.10` đến `3.12` (khuyến nghị `3.12`; **không dùng Python 3.14** — numpy/opencv chưa có wheel Windows)
 - MongoDB local hoặc MongoDB Atlas
 - Tesseract OCR để AI service đọc biển số từ ảnh upload
 
@@ -36,6 +36,24 @@ npm install
 python3 -m venv .venv
 .venv/bin/pip install -r ai-service/requirements.txt
 ```
+
+Windows (PowerShell):
+
+```powershell
+npm install
+py -3.12 -m venv .venv
+.\.venv\Scripts\pip.exe install -r ai-service\requirements.txt
+```
+
+Nếu chỉ có Python 3.14, cài thêm Python 3.12 trước:
+
+```powershell
+winget install Python.Python.3.12
+py -3.12 -m venv .venv
+.\.venv\Scripts\pip.exe install -r ai-service\requirements.txt
+```
+
+Lưu ý PowerShell: dùng `.\.venv\Scripts\pip.exe` (có `.\` và `.exe`), không dùng `.venv\Scripts\pip` — PowerShell có thể hiểu nhầm là module.
 
 Tạo file env từ example:
 
