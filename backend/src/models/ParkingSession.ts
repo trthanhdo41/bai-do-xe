@@ -33,6 +33,23 @@ export type ParkingSessionDocument = {
   verifiedAt?: Date;
   transactionId?: mongoose.Types.ObjectId;
   createdBy?: mongoose.Types.ObjectId;
+  // Extended fields
+  zone?: string;
+  slotType?: string;
+  floor?: number;
+  entryGate?: string;
+  exitGate?: string;
+  isOverstayed: boolean;
+  overdueMinutes: number;
+  vehicleId?: mongoose.Types.ObjectId;
+  checkInStaff?: mongoose.Types.ObjectId;
+  checkOutStaff?: mongoose.Types.ObjectId;
+  discountAmount: number;
+  discountReason?: string;
+  cancellationReason?: string;
+  cancelledBy?: mongoose.Types.ObjectId;
+  cancelledAt?: Date;
+  notes?: string;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -83,6 +100,23 @@ const parkingSessionSchema = new Schema<ParkingSessionDocument>(
     ownerUserId: { type: Schema.Types.ObjectId, ref: "User", index: true },
     transactionId: { type: Schema.Types.ObjectId, ref: "Transaction" },
     createdBy: { type: Schema.Types.ObjectId, ref: "User" },
+    // Extended fields
+    zone: { type: String },
+    slotType: { type: String },
+    floor: { type: Number },
+    entryGate: { type: String },
+    exitGate: { type: String },
+    isOverstayed: { type: Boolean, default: false },
+    overdueMinutes: { type: Number, default: 0 },
+    vehicleId: { type: Schema.Types.ObjectId, ref: "Vehicle" },
+    checkInStaff: { type: Schema.Types.ObjectId, ref: "User" },
+    checkOutStaff: { type: Schema.Types.ObjectId, ref: "User" },
+    discountAmount: { type: Number, default: 0 },
+    discountReason: { type: String },
+    cancellationReason: { type: String },
+    cancelledBy: { type: Schema.Types.ObjectId, ref: "User" },
+    cancelledAt: { type: Date },
+    notes: { type: String, trim: true },
   },
   { timestamps: true },
 );

@@ -8,6 +8,17 @@ export type ShiftDocument = {
   endAt?: Date;
   status: "Đang làm" | "Đã kết thúc";
   note?: string;
+  // Extended
+  shiftType?: "morning" | "afternoon" | "evening" | "night";
+  breakMinutes?: number;
+  overtimeHours?: number;
+  handoverNote?: string;
+  handoverTo?: mongoose.Types.ObjectId;
+  handoverAt?: Date;
+  totalSessions?: number;
+  totalRevenue?: number;
+  totalIncidents?: number;
+  location?: string;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -20,6 +31,17 @@ const shiftSchema = new Schema<ShiftDocument>(
     endAt: { type: Date },
     status: { type: String, enum: ["Đang làm", "Đã kết thúc"], default: "Đang làm" },
     note: { type: String },
+    // Extended
+    shiftType: { type: String, enum: ["morning", "afternoon", "evening", "night"] },
+    breakMinutes: { type: Number, default: 0 },
+    overtimeHours: { type: Number, default: 0 },
+    handoverNote: { type: String },
+    handoverTo: { type: Schema.Types.ObjectId, ref: "User" },
+    handoverAt: { type: Date },
+    totalSessions: { type: Number, default: 0 },
+    totalRevenue: { type: Number, default: 0 },
+    totalIncidents: { type: Number, default: 0 },
+    location: { type: String },
   },
   { timestamps: true },
 );

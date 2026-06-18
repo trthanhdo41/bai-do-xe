@@ -17,6 +17,21 @@ export type UserDocument = {
   twoFactorEnabled: boolean;
   twoFactorSecret?: string;
   twoFactorPendingSecret?: string;
+  // Extended fields
+  firstName?: string;
+  lastName?: string;
+  birthDate?: Date;
+  gender?: "male" | "female" | "other";
+  idCardNumber?: string;
+  address?: string;
+  city?: string;
+  district?: string;
+  company?: string;
+  lastLoginAt?: Date;
+  lastLoginIp?: string;
+  failedLoginCount: number;
+  lockedUntil?: Date;
+  isVerified: boolean;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -36,6 +51,20 @@ const userSchema = new Schema<UserDocument>(
     twoFactorEnabled: { type: Boolean, default: false },
     twoFactorSecret: { type: String },
     twoFactorPendingSecret: { type: String },
+    firstName: { type: String, trim: true },
+    lastName: { type: String, trim: true },
+    birthDate: { type: Date },
+    gender: { type: String, enum: ["male", "female", "other"] },
+    idCardNumber: { type: String, trim: true },
+    address: { type: String, trim: true },
+    city: { type: String, trim: true },
+    district: { type: String, trim: true },
+    company: { type: String, trim: true },
+    lastLoginAt: { type: Date },
+    lastLoginIp: { type: String },
+    failedLoginCount: { type: Number, default: 0 },
+    lockedUntil: { type: Date },
+    isVerified: { type: Boolean, default: false },
   },
   { timestamps: true },
 );

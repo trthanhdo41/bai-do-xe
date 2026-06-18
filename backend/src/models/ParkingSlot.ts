@@ -14,6 +14,11 @@ export type ParkingSlotDocument = {
   currentSessionId?: mongoose.Types.ObjectId;
   floor: number;
   notes?: string;
+  dimensions?: string;
+  maxVehicleSize?: string;
+  cameraId?: mongoose.Types.ObjectId;
+  lastMaintenance?: Date;
+  isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -38,6 +43,12 @@ const parkingSlotSchema = new Schema<ParkingSlotDocument>(
     currentSessionId: { type: Schema.Types.ObjectId, ref: "ParkingSession" },
     floor: { type: Number, default: 0 },
     notes: { type: String, trim: true },
+    // Extended
+    dimensions: { type: String, trim: true },
+    maxVehicleSize: { type: String, trim: true },
+    cameraId: { type: Schema.Types.ObjectId, ref: "Device" },
+    lastMaintenance: { type: Date },
+    isActive: { type: Boolean, default: true },
   },
   { timestamps: true },
 );

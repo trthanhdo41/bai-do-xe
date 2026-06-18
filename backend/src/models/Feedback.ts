@@ -9,6 +9,16 @@ export type FeedbackDocument = {
   createdBy?: mongoose.Types.ObjectId;
   handledBy?: mongoose.Types.ObjectId;
   handledAt?: Date;
+  // Extended
+  category?: "technical" | "service" | "payment" | "other";
+  priority?: "low" | "medium" | "high";
+  rating?: number;
+  contactEmail?: string;
+  contactPhone?: string;
+  relatedSessionId?: mongoose.Types.ObjectId;
+  relatedVehicleId?: mongoose.Types.ObjectId;
+  tags?: string[];
+  source?: "web" | "app" | "phone";
   createdAt: Date;
   updatedAt: Date;
 };
@@ -22,6 +32,16 @@ const feedbackSchema = new Schema<FeedbackDocument>(
     createdBy: { type: Schema.Types.ObjectId, ref: "User", index: true },
     handledBy: { type: Schema.Types.ObjectId, ref: "User" },
     handledAt: { type: Date },
+    // Extended
+    category: { type: String, enum: ["technical", "service", "payment", "other"] },
+    priority: { type: String, enum: ["low", "medium", "high"] },
+    rating: { type: Number, min: 1, max: 5 },
+    contactEmail: { type: String, trim: true },
+    contactPhone: { type: String, trim: true },
+    relatedSessionId: { type: Schema.Types.ObjectId, ref: "ParkingSession" },
+    relatedVehicleId: { type: Schema.Types.ObjectId, ref: "Vehicle" },
+    tags: { type: [String], default: [] },
+    source: { type: String, enum: ["web", "app", "phone"] },
   },
   { timestamps: true },
 );

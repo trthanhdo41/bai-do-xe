@@ -14,6 +14,21 @@ export type TransactionDocument = {
   paidAt?: Date;
   confirmedBy?: mongoose.Types.ObjectId;
   note?: string;
+  // Extended
+  transactionCode?: string;
+  bankTransactionId?: string;
+  bankName?: string;
+  accountNumber?: string;
+  accountName?: string;
+  gateway?: string;
+  discount?: number;
+  couponCode?: string;
+  refundAmount?: number;
+  refundReason?: string;
+  refundedAt?: Date;
+  refundedBy?: mongoose.Types.ObjectId;
+  receiptUrl?: string;
+  invoiceNumber?: string;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -30,6 +45,21 @@ const transactionSchema = new Schema<TransactionDocument>(
     paidAt: { type: Date },
     confirmedBy: { type: Schema.Types.ObjectId, ref: "User" },
     note: { type: String },
+    // Extended
+    transactionCode: { type: String, trim: true },
+    bankTransactionId: { type: String, trim: true },
+    bankName: { type: String, trim: true },
+    accountNumber: { type: String, trim: true },
+    accountName: { type: String, trim: true },
+    gateway: { type: String, trim: true },
+    discount: { type: Number, default: 0 },
+    couponCode: { type: String, trim: true },
+    refundAmount: { type: Number },
+    refundReason: { type: String },
+    refundedAt: { type: Date },
+    refundedBy: { type: Schema.Types.ObjectId, ref: "User" },
+    receiptUrl: { type: String },
+    invoiceNumber: { type: String, trim: true },
   },
   { timestamps: true },
 );
