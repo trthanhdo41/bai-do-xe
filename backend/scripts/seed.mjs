@@ -238,3 +238,130 @@ await Notification.updateOne(
 
 await mongoose.disconnect();
 console.log("Seed completed.");
+
+// ─── Seed Zones & ParkingSlots ────────────────────────────────────────────────
+await mongoose.connect(uri, { dbName });
+
+const zoneSchema = new mongoose.Schema(
+  {
+    name: { type: String, unique: true },
+    description: String,
+    capacity: Number,
+    allowedVehicleTypes: [String],
+    pricingConfigId: mongoose.Schema.Types.ObjectId,
+    displayOrder: Number,
+    isActive: Boolean,
+  },
+  { timestamps: true },
+);
+
+const parkingSlotSchema = new mongoose.Schema(
+  {
+    slotCode: { type: String, unique: true },
+    zoneId: mongoose.Schema.Types.ObjectId,
+    zoneName: String,
+    slotType: String,
+    features: [String],
+    status: String,
+    currentSessionId: mongoose.Schema.Types.ObjectId,
+    floor: Number,
+    notes: String,
+  },
+  { timestamps: true },
+);
+
+const ZoneModel = mongoose.models.Zone || mongoose.model("Zone", zoneSchema);
+const ParkingSlotModel =
+  mongoose.models.ParkingSlot || mongoose.model("ParkingSlot", parkingSlotSchema);
+
+const seedZones = [
+  {
+    name: "A",
+    description: "Khu đỗ thông thường",
+    capacity: 10,
+    allowedVehicleTypes: ["Ô tô"],
+    displayOrder: 1,
+    isActive: true,
+  },
+  {
+    name: "B",
+    description: "Khu đỗ hỗn hợp (thường + điện)",
+    capacity: 10,
+    allowedVehicleTypes: ["Ô tô"],
+    displayOrder: 2,
+    isActive: true,
+  },
+  {
+    name: "C",
+    description: "Khu đỗ có mái che + dành cho người khuyết tật",
+    capacity: 10,
+    allowedVehicleTypes: ["Ô tô"],
+    displayOrder: 3,
+    isActive: true,
+  },
+];
+
+// Upsert zones (idempotent)
+const zoneIds = {};
+for (const zone of seedZones) {
+  const doc = await ZoneModel.findOneAndUpdate(
+    { name: zone.name },
+    { $setOnInsert: zone },
+    { upsert: true, new: true },
+  );
+  zoneIds[zone.name] = doc._id;
+}
+
+// Seed slots per zone definition
+const seedSlots = [
+  // Zone A: 10 regular
+  ...Array.from({ length: 10 }, (_, i) => ({
+    slotCode: `A-${String(i + 1).padStart(2, "0")}`,
+    zoneName: "A",
+    slotType: "regular",
+    features: [],
+    floor: 0,
+  })),
+  // Zone B: 7 regular + 2 electric + 1 VIP
+  ...Array.from({ length: 7 }, (_, i) => ({
+    slotCode: `B-${String(i + 1).padStart(2, "0")}`,
+    zoneName: "B",
+    slotType: "regular",
+    features: [],
+    floor: 0,
+  })),
+  { slotCode: "B-08", zoneName: "B", slotType: "electric", features: ["charging"], floor: 0 },
+  { slotCode: "B-09", zoneName: "B", slotType: "electric", features: ["charging"], floor: 0 },
+  { slotCode: "B-10", zoneName: "B", slotType: "VIP", features: ["rain_cover", "cctv"], floor: 0 },
+  // Zone C: 7 regular + 2 handicap + 1 regular rain_cover
+  ...Array.from({ length: 7 }, (_, i) => ({
+    slotCode: `C-${String(i + 1).padStart(2, "0")}`,
+    zoneName: "C",
+    slotType: "regular",
+    features: [],
+    floor: 0,
+  })),
+  { slotCode: "C-08", zoneName: "C", slotType: "handicap", features: ["rain_cover"], floor: 0 },
+  { slotCode: "C-09", zoneName: "C", slotType: "handicap", features: ["rain_cover"], floor: 0 },
+  { slotCode: "C-10", zoneName: "C", slotType: "regular", features: ["rain_cover"], floor: 0 },
+];
+
+let slotsCreated = 0;
+for (const slot of seedSlots) {
+  const result = await ParkingSlotModel.updateOne(
+    { slotCode: slot.slotCode },
+    {
+      $setOnInsert: {
+        ...slot,
+        zoneId: zoneIds[slot.zoneName],
+        status: "empty",
+      },
+    },
+    { upsert: true },
+  );
+  if (result.upsertedCount > 0) slotsCreated++;
+}
+
+console.log(`Zones seeded: ${seedZones.length}, Slots created: ${slotsCreated}/${seedSlots.length}`);
+
+await mongoose.disconnect();

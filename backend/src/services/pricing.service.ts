@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { PricingConfig, PricingConfigDocument } from "../models/PricingConfig.js";
+import { Zone } from "../models/Zone.js";
 
 export const defaultPricingConfig = {
   freeMinutes: 20,
@@ -75,4 +76,22 @@ export function calculateParkingFee(
     overdueFine,
     totalFee: parkingFee + overdueFine,
   };
+}
+
+/**
+ * Get pricing config for a specific zone.
+ * If zone has a custom pricingConfigId, use that config.
+ * Otherwise fall back to the global active pricing config.
+ */
+export async function getActivePricingConfigForZone(
+  zoneId?: mongoose.Types.ObjectId | string | null,
+): Promise<PricingConfigDocument> {
+  if (zoneId && mongoose.isValidObjectId(zoneId)) {
+    const zone = await Zone.findById(zoneId);
+    if (zone?.pricingConfigId) {
+      const zoneConfig = await PricingConfig.findById(zone.pricingConfigId);
+      if (zoneConfig) return zoneConfig;
+    }
+  }
+  return getActivePricingConfig();
 }

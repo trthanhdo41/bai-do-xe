@@ -14,12 +14,14 @@ import type {
   IncidentItem,
   NotificationItem,
   ParkingSession,
+  ParkingSlot,
   PaymentConfig,
   PricingConfig,
   RegisteredVehicle,
   ReportSummary,
   ShiftItem,
   TransactionItem,
+  Zone,
 } from "@/types";
 
 export type ParkingAppState = {
@@ -46,6 +48,8 @@ export type ParkingAppState = {
   reportTo: string;
   reportSummary: ReportSummary | null;
   sessionLoading: boolean;
+  zoneList: Zone[];
+  slotList: ParkingSlot[];
 };
 
 export function createInitialState(): ParkingAppState {
@@ -73,5 +77,7 @@ export function createInitialState(): ParkingAppState {
     reportTo: todayInputValue(),
     reportSummary: null,
     sessionLoading: true,
+    zoneList: [],
+    slotList: [],
   };
 }

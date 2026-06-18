@@ -9,6 +9,7 @@ export type ParkingSessionDocument = {
   checkInAt: Date;
   checkOutAt?: Date;
   slot: string;
+  slotId?: mongoose.Types.ObjectId;
   status: "Đang gửi" | "Đã hoàn thành";
   paymentStatus: "unpaid" | "pending" | "paid";
   fee: number;
@@ -44,6 +45,7 @@ const parkingSessionSchema = new Schema<ParkingSessionDocument>(
     checkInAt: { type: Date, default: Date.now },
     checkOutAt: { type: Date },
     slot: { type: String, required: true },
+    slotId: { type: Schema.Types.ObjectId, ref: "ParkingSlot" },
     status: { type: String, enum: ["Đang gửi", "Đã hoàn thành"], default: "Đang gửi" },
     paymentStatus: { type: String, enum: ["unpaid", "pending", "paid"], default: "unpaid" },
     fee: { type: Number, default: 0 },

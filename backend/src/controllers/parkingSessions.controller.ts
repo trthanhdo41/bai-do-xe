@@ -1,14 +1,16 @@
 import { Request, Response } from "express";
 import { z } from "zod";
-import { allocateCarSlot, parkingConfig } from "../config/parking.js";
+import { parkingConfig } from "../config/parking.js";
 import { Device } from "../models/Device.js";
+import { ParkingSlot } from "../models/ParkingSlot.js";
 import { ParkingSession, ParkingSessionDocument } from "../models/ParkingSession.js";
 import { Vehicle } from "../models/Vehicle.js";
 import { detectVehicleImage } from "../services/ai.service.js";
 import { captureDeviceSnapshot } from "../services/device.service.js";
 import { createNotification } from "../services/notification.service.js";
 import { imageHashSimilarity, platesMatch } from "../services/plate.service.js";
-import { calculateParkingFee, getActivePricingConfig } from "../services/pricing.service.js";
+import { allocateSlot, freeSlot, occupySlot } from "../services/parkingSlot.service.js";
+import { calculateParkingFee, getActivePricingConfigForZone } from "../services/pricing.service.js";
 import { createPendingTransactionForSession, objectId } from "../services/transaction.service.js";
 import { saveUploadedImage } from "../services/upload.service.js";
 import { serializeParkingSession } from "../utils/serializers.js";
@@ -16,11 +18,15 @@ import { serializeParkingSession } from "../utils/serializers.js";
 async function finalizeCheckout(session: ParkingSessionDocument) {
   session.status = "Đã hoàn thành";
   session.checkOutAt = new Date();
-  const pricing = await getActivePricingConfig();
+  // Look up zone via slot for zone-specific pricing
+  const slotDoc = session.slotId ? await ParkingSlot.findById(session.slotId) : null;
+  const pricing = await getActivePricingConfigForZone(slotDoc?.zoneId);
   const feeBreakdown = calculateParkingFee(session.checkInAt, session.checkOutAt, pricing);
   session.fee = feeBreakdown.totalFee;
   session.feeBreakdown = feeBreakdown;
   await createPendingTransactionForSession(session);
+  // Release the slot
+  await freeSlot(session.slotId);
   return session;
 }
 
@@ -52,9 +58,9 @@ export async function createParkingSession(request: Request, response: Response)
     })
     .parse(request.body);
 
-  const activeCount = await ParkingSession.countDocuments({ status: "Đang gửi" });
-  if (activeCount >= parkingConfig.totalCapacity) {
-    response.status(409).json({ message: "Bãi xe đã đủ 30 chỗ." });
+  const slotDoc = await allocateSlot("Ô tô");
+  if (!slotDoc) {
+    response.status(409).json({ message: "Bãi xe đã hết chỗ trống." });
     return;
   }
 
@@ -62,10 +68,13 @@ export async function createParkingSession(request: Request, response: Response)
     plate: body.plate,
     ownerName: body.owner,
     vehicleType: "Ô tô",
-    slot: allocateCarSlot(activeCount),
+    slot: slotDoc.slotCode,
+    slotId: slotDoc._id,
     ownerUserId: await ownerFromPlate(body.plate),
     createdBy: request.user?.id,
   });
+
+  await occupySlot(slotDoc._id, session._id);
 
   response.status(201).json({ session: serializeParkingSession(session) });
 }
@@ -102,9 +111,9 @@ export async function uploadParkingImage(request: Request, response: Response) {
   }
 
   if (action === "entry") {
-    const activeCount = await ParkingSession.countDocuments({ status: "Đang gửi" });
-    if (activeCount >= parkingConfig.totalCapacity) {
-      response.status(409).json({ message: "Bãi xe đã đủ 30 chỗ." });
+    const slotDoc = await allocateSlot("Ô tô");
+    if (!slotDoc) {
+      response.status(409).json({ message: "Bãi xe đã hết chỗ trống." });
       return;
     }
 
@@ -113,7 +122,8 @@ export async function uploadParkingImage(request: Request, response: Response) {
       plate: detection.plate,
       ownerName: String(request.body.owner || "Khách vãng lai"),
       vehicleType: "Ô tô",
-      slot: allocateCarSlot(activeCount),
+      slot: slotDoc.slotCode,
+      slotId: slotDoc._id,
       entryImageUrl: imageUrl,
       entryDetectedPlate: detection.plate,
       entryConfidence: detection.confidence,
@@ -122,6 +132,8 @@ export async function uploadParkingImage(request: Request, response: Response) {
       ownerUserId: await ownerFromPlate(detection.plate),
       createdBy: request.user?.id,
     });
+
+    await occupySlot(slotDoc._id, session._id);
 
     response.status(201).json({ session: serializeParkingSession(session), detection });
     return;
@@ -241,9 +253,9 @@ export async function cameraEntry(request: Request, response: Response) {
     return;
   }
 
-  const activeCount = await ParkingSession.countDocuments({ status: "Đang gửi" });
-  if (activeCount >= parkingConfig.totalCapacity) {
-    response.status(409).json({ message: "Bãi xe đã đủ 30 chỗ." });
+  const slotDoc = await allocateSlot("Ô tô");
+  if (!slotDoc) {
+    response.status(409).json({ message: "Bãi xe đã hết chỗ trống." });
     return;
   }
 
@@ -251,7 +263,8 @@ export async function cameraEntry(request: Request, response: Response) {
     plate: detection.plate,
     ownerName: body.owner || "Khách vãng lai",
     vehicleType: "Ô tô",
-    slot: allocateCarSlot(activeCount),
+    slot: slotDoc.slotCode,
+    slotId: slotDoc._id,
     entryImageUrl: snapshot.imageUrl,
     entryDetectedPlate: detection.plate,
     entryConfidence: detection.confidence,
@@ -260,6 +273,8 @@ export async function cameraEntry(request: Request, response: Response) {
     ownerUserId: await ownerFromPlate(detection.plate),
     createdBy: request.user?.id,
   });
+
+  await occupySlot(slotDoc._id, session._id);
 
   response.status(201).json({ session: serializeParkingSession(session), detection });
 }

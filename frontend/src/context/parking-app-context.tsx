@@ -9,6 +9,8 @@ import { createMiscActions } from "@/hooks/actions/use-misc-actions";
 import { createPaymentActions } from "@/hooks/actions/use-payment-actions";
 import { createReportActions, useReportSummaryLoader } from "@/hooks/actions/use-report-actions";
 import { createSessionActions } from "@/hooks/actions/use-session-actions";
+import { createSlotActions } from "@/hooks/actions/use-slot-actions";
+import { createZoneActions } from "@/hooks/actions/use-zone-actions";
 import { useOperationalData } from "@/hooks/use-operational-data";
 import { useSessionLoader } from "@/hooks/use-session-loader";
 import { parkingConfig } from "@/lib/parking-config";
@@ -20,12 +22,15 @@ import type {
   IncidentItem,
   NotificationItem,
   ParkingSession,
+  ParkingSlot,
   PaymentConfig,
   PricingConfig,
   RegisteredVehicle,
   ReportSummary,
   ShiftItem,
+  SlotStatus,
   TransactionItem,
+  Zone,
 } from "@/types";
 import type { FormEvent } from "react";
 
@@ -97,6 +102,15 @@ type ParkingAppContextValue = {
   createIncident: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   resolveIncident: (id: string) => Promise<void>;
   approveVehicle: (vehicle: RegisteredVehicle) => Promise<void>;
+  zoneList: Zone[];
+  slotList: ParkingSlot[];
+  createZone: (event: FormEvent<HTMLFormElement>) => Promise<void>;
+  updateZone: (id: string, updates: Partial<Zone>) => Promise<void>;
+  deleteZone: (id: string) => Promise<void>;
+  createSlot: (event: FormEvent<HTMLFormElement>) => Promise<void>;
+  bulkCreateSlots: (event: FormEvent<HTMLFormElement>) => Promise<void>;
+  updateSlotStatus: (id: string, status: SlotStatus, notes?: string) => Promise<void>;
+  deleteSlot: (id: string) => Promise<void>;
 };
 
 const ParkingAppContext = createContext<ParkingAppContextValue | null>(null);
@@ -194,6 +208,18 @@ export function ParkingAppProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const setZoneList = useCallback(
+    (zoneList: Zone[] | ((items: Zone[]) => Zone[])) =>
+      setState((s) => ({ ...s, zoneList: typeof zoneList === "function" ? zoneList(s.zoneList) : zoneList })),
+    [],
+  );
+
+  const setSlotList = useCallback(
+    (slotList: ParkingSlot[] | ((items: ParkingSlot[]) => ParkingSlot[])) =>
+      setState((s) => ({ ...s, slotList: typeof slotList === "function" ? slotList(s.slotList) : slotList })),
+    [],
+  );
+
   useSessionLoader({ setCurrentUser, setActionLog, setSessionLoading });
 
   useOperationalData({
@@ -209,6 +235,8 @@ export function ParkingAppProvider({ children }: { children: ReactNode }) {
     setDeviceList,
     setShiftList,
     setIncidentList,
+    setZoneList,
+    setSlotList,
     setActionLog,
   });
 
@@ -294,17 +322,28 @@ export function ParkingAppProvider({ children }: { children: ReactNode }) {
     ],
   );
 
+  const zoneActions = useMemo(
+    () => createZoneActions({ setZoneList, setActionLog }),
+    [setZoneList, setActionLog],
+  );
+
+  const slotActions = useMemo(
+    () => createSlotActions({ setSlotList, setActionLog }),
+    [setSlotList, setActionLog],
+  );
+
   const stats = useMemo(() => {
     const active = state.sessions.filter((item) => item.status === "Đang gửi").length;
+    const totalSlots = state.slotList.length || 30;
+    const emptySlots = state.slotList.filter((s) => s.status === "empty").length;
     const revenue = state.sessions.reduce((sum, item) => sum + item.fee, 0);
-
     return {
       active,
-      available: parkingConfig.totalCapacity - active,
+      available: totalSlots > 0 ? emptySlots : totalSlots - active,
       revenue,
       completion: state.sessions.filter((item) => item.status === "Đã hoàn thành").length,
     };
-  }, [state.sessions]);
+  }, [state.sessions, state.slotList]);
 
   const filteredSessions = useMemo(() => {
     return state.sessions.filter((session) => {
@@ -353,8 +392,12 @@ export function ParkingAppProvider({ children }: { children: ReactNode }) {
       ...deviceActions,
       ...reportActions,
       ...miscActions,
+      zoneList: state.zoneList,
+      slotList: state.slotList,
+      ...zoneActions,
+      ...slotActions,
     }),
-    [state, stats, filteredSessions, authActions, sessionActions, paymentActions, deviceActions, reportActions, miscActions],
+    [state, stats, filteredSessions, authActions, sessionActions, paymentActions, deviceActions, reportActions, miscActions, zoneActions, slotActions],
   );
 
   return <ParkingAppContext.Provider value={value}>{children}</ParkingAppContext.Provider>;

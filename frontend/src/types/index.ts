@@ -15,7 +15,9 @@ export type View =
   | "incidents"
   | "ai"
   | "devices"
-  | "security";
+  | "security"
+  | "zones"
+  | "parking-slots";
 
 export type DemoUser = {
   id: number | string;
@@ -49,6 +51,7 @@ export type ParkingSession = {
   checkIn: string;
   checkOut?: string;
   slot: string;
+  slotId?: string;
   status: "Đang gửi" | "Đã hoàn thành";
   fee: number;
   entryImageUrl?: string;
@@ -165,3 +168,47 @@ export type IncidentItem = {
 };
 
 export type AuthMode = "login" | "register" | "forgot";
+
+export type ZoneStats = {
+  total: number;
+  empty: number;
+  occupied: number;
+  reserved: number;
+  maintenance: number;
+};
+
+export type Zone = {
+  id: string;
+  name: string;
+  description?: string;
+  capacity: number;
+  allowedVehicleTypes: string[];
+  pricingConfigId?: string;
+  displayOrder: number;
+  isActive: boolean;
+  stats?: ZoneStats;
+  updatedAt?: string;
+};
+
+export type SlotStatus = "empty" | "occupied" | "reserved" | "maintenance";
+export type SlotType = "regular" | "VIP" | "electric" | "handicap";
+
+export type ParkingSlot = {
+  id: string;
+  slotCode: string;
+  zoneId: string;
+  zoneName: string;
+  slotType: SlotType;
+  features: string[];
+  status: SlotStatus;
+  currentSessionId?: string;
+  floor: number;
+  notes?: string;
+  updatedAt?: string;
+};
+
+export type SlotMapEntry = {
+  zoneId: string;
+  zoneName: string;
+  slots: ParkingSlot[];
+};

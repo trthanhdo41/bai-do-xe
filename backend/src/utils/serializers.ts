@@ -1,4 +1,5 @@
 import { ParkingSessionDocument } from "../models/ParkingSession.js";
+import { ParkingSlotDocument } from "../models/ParkingSlot.js";
 import { UserDocument } from "../models/User.js";
 import { VehicleDocument } from "../models/Vehicle.js";
 import { DeviceDocument } from "../models/Device.js";
@@ -8,6 +9,8 @@ import { NotificationDocument } from "../models/Notification.js";
 import { PaymentConfigDocument } from "../models/PaymentConfig.js";
 import { ShiftDocument } from "../models/Shift.js";
 import { TransactionDocument } from "../models/Transaction.js";
+import { ZoneDocument } from "../models/Zone.js";
+import type { ZoneStats } from "../services/zone.service.js";
 
 export function serializeUser(user: UserDocument) {
   return {
@@ -32,6 +35,7 @@ export function serializeParkingSession(session: ParkingSessionDocument) {
     checkIn: session.checkInAt.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
     checkOut: session.checkOutAt?.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
     slot: session.slot,
+    slotId: session.slotId?.toString(),
     status: session.status,
     paymentStatus: session.paymentStatus,
     fee: session.fee,
@@ -152,5 +156,36 @@ export function serializeIncident(incident: IncidentDocument) {
     createdBy: incident.createdBy?.toString(),
     handledAt: incident.handledAt,
     createdAt: incident.createdAt,
+  };
+}
+
+export function serializeZone(zone: ZoneDocument, stats?: ZoneStats) {
+  return {
+    id: zone._id.toString(),
+    name: zone.name,
+    description: zone.description,
+    capacity: zone.capacity,
+    allowedVehicleTypes: zone.allowedVehicleTypes,
+    pricingConfigId: zone.pricingConfigId?.toString(),
+    displayOrder: zone.displayOrder,
+    isActive: zone.isActive,
+    ...(stats ? { stats } : {}),
+    updatedAt: zone.updatedAt,
+  };
+}
+
+export function serializeParkingSlot(slot: ParkingSlotDocument) {
+  return {
+    id: slot._id.toString(),
+    slotCode: slot.slotCode,
+    zoneId: slot.zoneId.toString(),
+    zoneName: slot.zoneName,
+    slotType: slot.slotType,
+    features: slot.features,
+    status: slot.status,
+    currentSessionId: slot.currentSessionId?.toString(),
+    floor: slot.floor,
+    notes: slot.notes,
+    updatedAt: slot.updatedAt,
   };
 }

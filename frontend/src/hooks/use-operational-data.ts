@@ -8,11 +8,13 @@ import type {
   IncidentItem,
   NotificationItem,
   ParkingSession,
+  ParkingSlot,
   PaymentConfig,
   PricingConfig,
   RegisteredVehicle,
   ShiftItem,
   TransactionItem,
+  Zone,
 } from "@/types";
 
 type OperationalDataParams = {
@@ -34,6 +36,8 @@ type OperationalDataParams = {
   setDeviceList: (devices: DeviceItem[] | ((items: DeviceItem[]) => DeviceItem[])) => void;
   setShiftList: (shifts: ShiftItem[] | ((items: ShiftItem[]) => ShiftItem[])) => void;
   setIncidentList: (incidents: IncidentItem[] | ((items: IncidentItem[]) => IncidentItem[])) => void;
+  setZoneList: (zones: Zone[] | ((items: Zone[]) => Zone[])) => void;
+  setSlotList: (slots: ParkingSlot[] | ((items: ParkingSlot[]) => ParkingSlot[])) => void;
   setActionLog: (log: string) => void;
 };
 
@@ -50,6 +54,8 @@ export function useOperationalData({
   setDeviceList,
   setShiftList,
   setIncidentList,
+  setZoneList,
+  setSlotList,
   setActionLog,
 }: OperationalDataParams) {
   const loadedForUserRef = useRef<string | null>(null);
@@ -144,6 +150,20 @@ export function useOperationalData({
             const data = await incidentResponse.json();
             setIncidentList(data.incidents);
           }
+          // Load zones and slots for admin/staff
+          const [zoneResponse, slotResponse] = await Promise.all([
+            apiFetch("/zones"),
+            apiFetch("/parking-slots"),
+          ]);
+          if (cancelled) return;
+          if (zoneResponse.ok) {
+            const data = await zoneResponse.json();
+            setZoneList(data.zones);
+          }
+          if (slotResponse.ok) {
+            const data = await slotResponse.json();
+            setSlotList(data.slots);
+          }
         }
       } catch {
         if (!cancelled) {
@@ -171,6 +191,8 @@ export function useOperationalData({
     setDeviceList,
     setShiftList,
     setIncidentList,
+    setZoneList,
+    setSlotList,
     setActionLog,
   ]);
 }

@@ -366,8 +366,6 @@ th {
 }
 
 .app-shell {
-  display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
   min-height: 100vh;
 }
 
@@ -375,6 +373,13 @@ th {
   background: var(--sidebar);
   color: #fff;
   padding: 22px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 260px;
+  overflow-y: auto;
+  z-index: 5;
 }
 
 .app-brand {
@@ -409,6 +414,7 @@ th {
 .workspace {
   min-width: 0;
   padding: 24px;
+  margin-left: 260px;
 }
 
 .app-header {
@@ -675,6 +681,7 @@ th {
 }
 
 @media (max-width: 980px) {
+
   .hero-grid,
   .public-section,
   .content-grid {
@@ -686,7 +693,7 @@ th {
   }
 
   .app-shell {
-    grid-template-columns: 1fr;
+    display: block;
   }
 
   .sidebar {
@@ -701,6 +708,10 @@ th {
 
   .sidebar.open {
     left: 0;
+  }
+
+  .workspace {
+    margin-left: 0;
   }
 
   .mobile-only {
@@ -752,4 +763,183 @@ th {
     min-width: 42px;
     padding: 0;
   }
+}
+
+/* ─── Parking Slot Map ─────────────────────────────────────────── */
+.slot-map {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.slot-zone-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.slot-zone-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.95rem;
+  border-bottom: 1px solid var(--border, #e5e7eb);
+  padding-bottom: 6px;
+}
+
+.slot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.slot-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1.5px solid #e5e7eb;
+  min-width: 100px;
+  background: #f9fafb;
+  font-size: 0.82rem;
+  transition: border-color 0.15s;
+}
+
+.slot-card.slot-empty {
+  border-color: #86efac;
+  background: #f0fdf4;
+}
+
+.slot-card.slot-occupied {
+  border-color: #fca5a5;
+  background: #fff1f2;
+}
+
+.slot-card.slot-reserved {
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+.slot-card.slot-maintenance {
+  border-color: #d1d5db;
+  background: #f3f4f6;
+  opacity: 0.75;
+}
+
+.slot-card-code {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.slot-card-type {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.slot-card-features {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 2px;
+}
+
+.slot-stats-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.inline-input {
+  padding: 2px 6px;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 4px;
+  font-size: 0.85rem;
+  width: 100%;
+}
+
+/* ─── Sessions Page Layout ──────────────────────────────────────── */
+.sessions-table-panel {
+  grid-column: 1 / -1;
+  /* span full width of content-grid */
+}
+
+.sessions-table-wrap {
+  max-height: 520px;
+  overflow-y: auto;
+}
+
+.sessions-table-wrap thead th {
+  background: var(--panel, #fff);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+/* ─── Sessions page: keep checkout visible next to table ─────── */
+.content-grid>.panel.wide {
+  grid-row: span 2;
+}
+
+/* ─── Single-column full-width layout for pages without sidebar panel ─── */
+.content-single {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: 1fr;
+}
+
+.content-single .panel {
+  padding: 20px;
+}
+
+/* ─── Tab Bar ─────────────────────────────────────────────────── */
+.tab-bar {
+  display: inline-flex;
+  gap: 0;
+  border: 1px solid var(--line, #e5e7eb);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 18px;
+}
+
+.tab-item {
+  padding: 8px 18px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: none;
+  background: transparent;
+  color: var(--muted, #6b7280);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  border-right: 1px solid var(--line, #e5e7eb);
+  white-space: nowrap;
+}
+
+.tab-item:last-child {
+  border-right: none;
+}
+
+.tab-item:hover {
+  background: #f3f4f6;
+  color: var(--primary-strong, #1d4ed8);
+}
+
+.tab-item.tab-active {
+  background: var(--primary, #2563eb);
+  color: #fff;
+}
+
+/* ─── Filter Row ──────────────────────────────────────────────── */
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.filter-row select {
+  min-width: 180px;
 }

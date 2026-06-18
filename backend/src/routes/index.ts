@@ -5,6 +5,7 @@ import { feedbackRoutes } from "./feedback.routes.js";
 import { incidentsRoutes } from "./incidents.routes.js";
 import { notificationsRoutes } from "./notifications.routes.js";
 import { parkingSessionsRoutes } from "./parkingSessions.routes.js";
+import { parkingSlotsRoutes } from "./parkingSlots.routes.js";
 import { paymentConfigRoutes } from "./paymentConfig.routes.js";
 import { pricingConfigRoutes } from "./pricingConfig.routes.js";
 import { reportsRoutes } from "./reports.routes.js";
@@ -12,6 +13,7 @@ import { shiftsRoutes } from "./shifts.routes.js";
 import { transactionsRoutes } from "./transactions.routes.js";
 import { usersRoutes } from "./users.routes.js";
 import { vehiclesRoutes } from "./vehicles.routes.js";
+import { zonesRoutes } from "./zones.routes.js";
 
 export const apiRoutes = Router();
 
@@ -19,6 +21,8 @@ apiRoutes.get("/health", (_request, response) => response.json({ ok: true, servi
 apiRoutes.use("/auth", authRoutes);
 apiRoutes.use("/users", usersRoutes);
 apiRoutes.use("/vehicles", vehiclesRoutes);
+apiRoutes.use("/zones", zonesRoutes);
+apiRoutes.use("/parking-slots", parkingSlotsRoutes);
 apiRoutes.use("/parking-sessions", parkingSessionsRoutes);
 apiRoutes.use("/pricing-config", pricingConfigRoutes);
 apiRoutes.use("/reports", reportsRoutes);
