@@ -49,6 +49,9 @@ export type ParkingSessionDocument = {
   cancellationReason?: string;
   cancelledBy?: mongoose.Types.ObjectId;
   cancelledAt?: Date;
+  paymentMethod?: string;
+  qrCode?: string;
+  qrExpiry?: Date;
   notes?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -116,6 +119,9 @@ const parkingSessionSchema = new Schema<ParkingSessionDocument>(
     cancellationReason: { type: String },
     cancelledBy: { type: Schema.Types.ObjectId, ref: "User" },
     cancelledAt: { type: Date },
+    paymentMethod: { type: String, trim: true },
+    qrCode: { type: String },
+    qrExpiry: { type: Date },
     notes: { type: String, trim: true },
   },
   { timestamps: true },

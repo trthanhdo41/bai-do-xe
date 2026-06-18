@@ -10,6 +10,8 @@ export type ShiftDocument = {
   note?: string;
   // Extended
   shiftType?: "morning" | "afternoon" | "evening" | "night";
+  startTime?: string;
+  endTime?: string;
   breakMinutes?: number;
   overtimeHours?: number;
   handoverNote?: string;
@@ -18,6 +20,7 @@ export type ShiftDocument = {
   totalSessions?: number;
   totalRevenue?: number;
   totalIncidents?: number;
+  deviceId?: mongoose.Types.ObjectId;
   location?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -33,6 +36,8 @@ const shiftSchema = new Schema<ShiftDocument>(
     note: { type: String },
     // Extended
     shiftType: { type: String, enum: ["morning", "afternoon", "evening", "night"] },
+    startTime: { type: String },
+    endTime: { type: String },
     breakMinutes: { type: Number, default: 0 },
     overtimeHours: { type: Number, default: 0 },
     handoverNote: { type: String },
@@ -41,6 +46,7 @@ const shiftSchema = new Schema<ShiftDocument>(
     totalSessions: { type: Number, default: 0 },
     totalRevenue: { type: Number, default: 0 },
     totalIncidents: { type: Number, default: 0 },
+    deviceId: { type: Schema.Types.ObjectId, ref: "Device" },
     location: { type: String },
   },
   { timestamps: true },

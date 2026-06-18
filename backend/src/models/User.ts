@@ -23,15 +23,22 @@ export type UserDocument = {
   birthDate?: Date;
   gender?: "male" | "female" | "other";
   idCardNumber?: string;
+  idCardIssuedAt?: Date;
+  idCardExpiry?: Date;
   address?: string;
   city?: string;
   district?: string;
+  emergencyContact?: string;
+  emergencyPhone?: string;
   company?: string;
+  taxCode?: string;
   lastLoginAt?: Date;
   lastLoginIp?: string;
   failedLoginCount: number;
   lockedUntil?: Date;
   isVerified: boolean;
+  verificationToken?: string;
+  resetPasswordToken?: string;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -56,15 +63,22 @@ const userSchema = new Schema<UserDocument>(
     birthDate: { type: Date },
     gender: { type: String, enum: ["male", "female", "other"] },
     idCardNumber: { type: String, trim: true },
+    idCardIssuedAt: { type: Date },
+    idCardExpiry: { type: Date },
     address: { type: String, trim: true },
     city: { type: String, trim: true },
     district: { type: String, trim: true },
+    emergencyContact: { type: String, trim: true },
+    emergencyPhone: { type: String, trim: true },
     company: { type: String, trim: true },
+    taxCode: { type: String, trim: true },
     lastLoginAt: { type: Date },
     lastLoginIp: { type: String },
     failedLoginCount: { type: Number, default: 0 },
     lockedUntil: { type: Date },
     isVerified: { type: Boolean, default: false },
+    verificationToken: { type: String },
+    resetPasswordToken: { type: String },
   },
   { timestamps: true },
 );

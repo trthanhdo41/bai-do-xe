@@ -29,6 +29,11 @@ export type TransactionDocument = {
   refundedBy?: mongoose.Types.ObjectId;
   receiptUrl?: string;
   invoiceNumber?: string;
+  currency?: string;
+  exchangeRate?: number;
+  fee?: number;
+  tax?: number;
+  paymentGatewayResponse?: string;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -60,6 +65,11 @@ const transactionSchema = new Schema<TransactionDocument>(
     refundedBy: { type: Schema.Types.ObjectId, ref: "User" },
     receiptUrl: { type: String },
     invoiceNumber: { type: String, trim: true },
+    currency: { type: String, default: "VND", trim: true },
+    exchangeRate: { type: Number },
+    fee: { type: Number, default: 0 },
+    tax: { type: Number, default: 0 },
+    paymentGatewayResponse: { type: String },
   },
   { timestamps: true },
 );

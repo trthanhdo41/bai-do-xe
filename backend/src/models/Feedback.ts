@@ -19,6 +19,9 @@ export type FeedbackDocument = {
   relatedVehicleId?: mongoose.Types.ObjectId;
   tags?: string[];
   source?: "web" | "app" | "phone";
+  attachments?: string[];
+  resolutionTime?: number;
+  customerSatisfaction?: number;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -42,6 +45,9 @@ const feedbackSchema = new Schema<FeedbackDocument>(
     relatedVehicleId: { type: Schema.Types.ObjectId, ref: "Vehicle" },
     tags: { type: [String], default: [] },
     source: { type: String, enum: ["web", "app", "phone"] },
+    attachments: { type: [String], default: [] },
+    resolutionTime: { type: Number },
+    customerSatisfaction: { type: Number, min: 1, max: 5 },
   },
   { timestamps: true },
 );

@@ -18,6 +18,7 @@ export type IncidentDocument = {
   relatedVehicleId?: mongoose.Types.ObjectId;
   relatedUserId?: mongoose.Types.ObjectId;
   assignedTo?: mongoose.Types.ObjectId;
+  escalatedTo?: mongoose.Types.ObjectId;
   resolution?: string;
   resolutionTime?: number;
   affectedZone?: string;
@@ -50,6 +51,7 @@ const incidentSchema = new Schema<IncidentDocument>(
     relatedVehicleId: { type: Schema.Types.ObjectId, ref: "Vehicle" },
     relatedUserId: { type: Schema.Types.ObjectId, ref: "User" },
     assignedTo: { type: Schema.Types.ObjectId, ref: "User" },
+    escalatedTo: { type: Schema.Types.ObjectId, ref: "User" },
     resolution: { type: String, trim: true },
     resolutionTime: { type: Number },
     affectedZone: { type: String },

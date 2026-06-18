@@ -10,8 +10,13 @@ export type VehicleDocument = {
   brand?: string;
   color?: string;
   year?: number;
+  engineNo?: string;
+  chassisNo?: string;
+  registrationDate?: Date;
+  registrationExpiry?: Date;
   ownerPhone?: string;
   ownerIdCard?: string;
+  ownerAddress?: string;
   notes?: string;
   imageUrl?: string;
   insuranceExpiry?: Date;
@@ -31,8 +36,13 @@ const vehicleSchema = new Schema<VehicleDocument>(
     brand: { type: String, trim: true },
     color: { type: String, trim: true },
     year: { type: Number },
+    engineNo: { type: String, trim: true },
+    chassisNo: { type: String, trim: true },
+    registrationDate: { type: Date },
+    registrationExpiry: { type: Date },
     ownerPhone: { type: String, trim: true },
     ownerIdCard: { type: String, trim: true },
+    ownerAddress: { type: String, trim: true },
     notes: { type: String, trim: true },
     imageUrl: { type: String },
     insuranceExpiry: { type: Date },

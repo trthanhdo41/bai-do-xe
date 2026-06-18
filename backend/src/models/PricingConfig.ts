@@ -23,6 +23,12 @@ export type PricingConfigDocument = {
   additionalHourRate?: number;
   dailyMaxRate?: number;
   prioritySlotRate?: number;
+  minMinutes?: number;
+  maxMinutes?: number;
+  gracePeriod?: number;
+  specialEventRate?: number;
+  discountPercent?: number;
+  discountReason?: string;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -50,6 +56,12 @@ const pricingConfigSchema = new Schema<PricingConfigDocument>(
     additionalHourRate: { type: Number, min: 0 },
     dailyMaxRate: { type: Number, min: 0 },
     prioritySlotRate: { type: Number, min: 0 },
+    minMinutes: { type: Number, min: 0 },
+    maxMinutes: { type: Number, min: 0 },
+    gracePeriod: { type: Number, min: 0 },
+    specialEventRate: { type: Number, min: 0 },
+    discountPercent: { type: Number, min: 0, max: 100 },
+    discountReason: { type: String, trim: true },
   },
   { timestamps: true },
 );
