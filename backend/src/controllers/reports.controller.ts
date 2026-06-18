@@ -170,3 +170,37 @@ function buildPdfReport(values: {
     document.end();
   });
 }
+
+// --- Advanced Analytics Endpoints ---
+import {
+  getOccupancyByHour,
+  getPeakHoursAnalysis,
+  getRevenueChart,
+  getTopCustomers,
+} from "../services/analytics.service.js";
+
+export async function revenueChartHandler(request: Request, response: Response) {
+  const { from, to } = getDateRange(request);
+  const groupBy = (request.query.groupBy as "day" | "week" | "month") || "day";
+  const data = await getRevenueChart(from, to, groupBy);
+  response.json({ data });
+}
+
+export async function occupancyHourlyHandler(request: Request, response: Response) {
+  const { from, to } = getDateRange(request);
+  const data = await getOccupancyByHour(from, to);
+  response.json({ data });
+}
+
+export async function topCustomersHandler(request: Request, response: Response) {
+  const { from, to } = getDateRange(request);
+  const limit = Math.min(50, Math.max(1, Number(request.query.limit) || 10));
+  const data = await getTopCustomers(limit, from, to);
+  response.json({ data });
+}
+
+export async function peakHoursHandler(request: Request, response: Response) {
+  const { from, to } = getDateRange(request);
+  const data = await getPeakHoursAnalysis(from, to);
+  response.json({ data });
+}

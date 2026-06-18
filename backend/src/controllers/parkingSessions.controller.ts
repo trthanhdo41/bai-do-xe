@@ -11,6 +11,7 @@ import { createNotification } from "../services/notification.service.js";
 import { imageHashSimilarity, platesMatch } from "../services/plate.service.js";
 import { allocateSlot, freeSlot, occupySlot } from "../services/parkingSlot.service.js";
 import { calculateParkingFee, getActivePricingConfigForZone } from "../services/pricing.service.js";
+import { checkSubscriptionDiscount } from "../services/subscription.service.js";
 import { createPendingTransactionForSession, objectId } from "../services/transaction.service.js";
 import { saveUploadedImage } from "../services/upload.service.js";
 import { serializeParkingSession } from "../utils/serializers.js";
@@ -24,6 +25,14 @@ async function finalizeCheckout(session: ParkingSessionDocument) {
   const feeBreakdown = calculateParkingFee(session.checkInAt, session.checkOutAt, pricing);
   session.fee = feeBreakdown.totalFee;
   session.feeBreakdown = feeBreakdown;
+
+  // Apply subscription discount if available
+  const discount = await checkSubscriptionDiscount(session.ownerUserId, session.plate);
+  if (discount > 0) {
+    session.fee = Math.round(session.fee * (1 - discount / 100));
+    (session.feeBreakdown as any).subscriptionDiscount = discount;
+  }
+
   await createPendingTransactionForSession(session);
   // Release the slot
   await freeSlot(session.slotId);

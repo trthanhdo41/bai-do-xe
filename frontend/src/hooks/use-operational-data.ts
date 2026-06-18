@@ -12,7 +12,10 @@ import type {
   PaymentConfig,
   PricingConfig,
   RegisteredVehicle,
+  Reservation,
   ShiftItem,
+  Subscription,
+  SubscriptionPlan,
   TransactionItem,
   Zone,
 } from "@/types";
@@ -38,6 +41,9 @@ type OperationalDataParams = {
   setIncidentList: (incidents: IncidentItem[] | ((items: IncidentItem[]) => IncidentItem[])) => void;
   setZoneList: (zones: Zone[] | ((items: Zone[]) => Zone[])) => void;
   setSlotList: (slots: ParkingSlot[] | ((items: ParkingSlot[]) => ParkingSlot[])) => void;
+  setReservationList: (items: Reservation[] | ((prev: Reservation[]) => Reservation[])) => void;
+  setPlanList: (items: SubscriptionPlan[] | ((prev: SubscriptionPlan[]) => SubscriptionPlan[])) => void;
+  setSubscriptionList: (items: Subscription[] | ((prev: Subscription[]) => Subscription[])) => void;
   setActionLog: (log: string) => void;
 };
 
@@ -56,6 +62,9 @@ export function useOperationalData({
   setIncidentList,
   setZoneList,
   setSlotList,
+  setReservationList,
+  setPlanList,
+  setSubscriptionList,
   setActionLog,
 }: OperationalDataParams) {
   const loadedForUserRef = useRef<string | null>(null);
@@ -165,6 +174,25 @@ export function useOperationalData({
             setSlotList(data.slots);
           }
         }
+        // Load reservations + subscriptions for all roles
+        const [reservationRes, plansRes, subsRes] = await Promise.all([
+          apiFetch(activeUser.role === "customer" ? "/reservations/my" : "/reservations"),
+          apiFetch("/subscriptions/plans"),
+          apiFetch(activeUser.role === "customer" ? "/subscriptions/my" : "/subscriptions"),
+        ]);
+        if (cancelled) return;
+        if (reservationRes.ok) {
+          const data = await reservationRes.json();
+          setReservationList(data.reservations);
+        }
+        if (plansRes.ok) {
+          const data = await plansRes.json();
+          setPlanList(data.plans);
+        }
+        if (subsRes.ok) {
+          const data = await subsRes.json();
+          setSubscriptionList(data.subscriptions);
+        }
       } catch {
         if (!cancelled) {
           setActionLog("Không tải được dữ liệu vận hành từ MongoDB local.");
@@ -193,6 +221,9 @@ export function useOperationalData({
     setIncidentList,
     setZoneList,
     setSlotList,
+    setReservationList,
+    setPlanList,
+    setSubscriptionList,
     setActionLog,
   ]);
 }

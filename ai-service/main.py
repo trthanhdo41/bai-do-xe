@@ -1,4 +1,5 @@
 import base64
+import os
 import re
 import tempfile
 from pathlib import Path
@@ -6,6 +7,14 @@ from urllib.parse import urlsplit, urlunsplit
 
 import cv2
 import pytesseract
+
+# Allow overriding tesseract binary path via environment variable.
+# Example: set TESSERACT_CMD=C:\Program Files\Tesseract-OCR\tesseract.exe
+_tesseract_cmd = os.environ.get("TESSERACT_CMD", "")
+if _tesseract_cmd:
+    pytesseract.pytesseract.tesseract_cmd = _tesseract_cmd
+elif os.path.isfile(r"C:\Program Files\Tesseract-OCR\tesseract.exe"):
+    pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from PIL import Image, ImageFilter, ImageOps
 from pydantic import BaseModel

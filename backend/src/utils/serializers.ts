@@ -1,5 +1,9 @@
+import { DeviceMaintenanceLogDocument } from "../models/DeviceMaintenanceLog.js";
 import { ParkingSessionDocument } from "../models/ParkingSession.js";
 import { ParkingSlotDocument } from "../models/ParkingSlot.js";
+import { ReservationDocument } from "../models/Reservation.js";
+import { SubscriptionDocument } from "../models/Subscription.js";
+import { SubscriptionPlanDocument } from "../models/SubscriptionPlan.js";
 import { UserDocument } from "../models/User.js";
 import { VehicleDocument } from "../models/Vehicle.js";
 import { DeviceDocument } from "../models/Device.js";
@@ -187,5 +191,73 @@ export function serializeParkingSlot(slot: ParkingSlotDocument) {
     floor: slot.floor,
     notes: slot.notes,
     updatedAt: slot.updatedAt,
+  };
+}
+
+export function serializeReservation(reservation: ReservationDocument) {
+  return {
+    id: reservation._id.toString(),
+    userId: reservation.userId.toString(),
+    slotId: reservation.slotId.toString(),
+    slotCode: reservation.slotCode,
+    zoneName: reservation.zoneName,
+    vehicleType: reservation.vehicleType,
+    plate: reservation.plate,
+    reservedFrom: reservation.reservedFrom.toISOString(),
+    reservedUntil: reservation.reservedUntil.toISOString(),
+    status: reservation.status,
+    sessionId: reservation.sessionId?.toString(),
+    depositAmount: reservation.depositAmount,
+    cancelledAt: reservation.cancelledAt?.toISOString(),
+    cancelReason: reservation.cancelReason,
+    createdAt: reservation.createdAt.toISOString(),
+  };
+}
+
+export function serializeSubscriptionPlan(plan: SubscriptionPlanDocument) {
+  return {
+    id: plan._id.toString(),
+    name: plan.name,
+    description: plan.description,
+    duration: plan.duration,
+    durationDays: plan.durationDays,
+    price: plan.price,
+    discountPercent: plan.discountPercent,
+    maxVehicles: plan.maxVehicles,
+    features: plan.features,
+    isActive: plan.isActive,
+  };
+}
+
+export function serializeSubscription(sub: SubscriptionDocument) {
+  return {
+    id: sub._id.toString(),
+    userId: sub.userId.toString(),
+    planId: sub.planId.toString(),
+    planName: sub.planName,
+    startDate: sub.startDate.toISOString(),
+    endDate: sub.endDate.toISOString(),
+    status: sub.status,
+    autoRenew: sub.autoRenew,
+    plates: sub.plates,
+    transactionId: sub.transactionId?.toString(),
+    renewalCount: sub.renewalCount,
+    createdAt: sub.createdAt.toISOString(),
+  };
+}
+
+export function serializeMaintenanceLog(log: DeviceMaintenanceLogDocument) {
+  return {
+    id: log._id.toString(),
+    deviceId: log.deviceId.toString(),
+    deviceName: log.deviceName,
+    type: log.type,
+    description: log.description,
+    performedBy: log.performedBy?.toString(),
+    performedAt: log.performedAt.toISOString(),
+    cost: log.cost,
+    notes: log.notes,
+    status: log.status,
+    createdAt: log.createdAt.toISOString(),
   };
 }

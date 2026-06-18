@@ -10,16 +10,24 @@ import type {
   AuthMode,
   DemoUser,
   DeviceItem,
+  DeviceMaintenanceLog,
   FeedbackItem,
   IncidentItem,
   NotificationItem,
+  OccupancyHourPoint,
   ParkingSession,
   ParkingSlot,
   PaymentConfig,
+  PeakHourPoint,
   PricingConfig,
   RegisteredVehicle,
   ReportSummary,
+  Reservation,
+  RevenueChartPoint,
   ShiftItem,
+  Subscription,
+  SubscriptionPlan,
+  TopCustomer,
   TransactionItem,
   Zone,
 } from "@/types";
@@ -50,6 +58,14 @@ export type ParkingAppState = {
   sessionLoading: boolean;
   zoneList: Zone[];
   slotList: ParkingSlot[];
+  reservationList: Reservation[];
+  planList: SubscriptionPlan[];
+  subscriptionList: Subscription[];
+  maintenanceLogList: DeviceMaintenanceLog[];
+  revenueChart: RevenueChartPoint[];
+  occupancyData: OccupancyHourPoint[];
+  topCustomers: TopCustomer[];
+  peakHours: PeakHourPoint[];
 };
 
 export function createInitialState(): ParkingAppState {
@@ -79,5 +95,13 @@ export function createInitialState(): ParkingAppState {
     sessionLoading: true,
     zoneList: [],
     slotList: [],
+    reservationList: [],
+    planList: [],
+    subscriptionList: [],
+    maintenanceLogList: [],
+    revenueChart: [],
+    occupancyData: [],
+    topCustomers: [],
+    peakHours: [],
   };
 }

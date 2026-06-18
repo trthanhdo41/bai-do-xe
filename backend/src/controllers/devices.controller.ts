@@ -62,3 +62,65 @@ export async function snapshotDevice(request: Request, response: Response) {
     });
   }
 }
+
+// --- Maintenance & Health ---
+import {
+  checkOfflineDevices,
+  createMaintenanceLog,
+  getUpcomingMaintenance,
+  listMaintenanceLogs,
+  updateMaintenanceSchedule,
+} from "../services/deviceMaintenance.service.js";
+import { serializeMaintenanceLog } from "../utils/serializers.js";
+
+export async function listDeviceMaintenanceHandler(request: Request, response: Response) {
+  const logs = await listMaintenanceLogs(String(request.params.id));
+  response.json({ logs: logs.map(serializeMaintenanceLog) });
+}
+
+export async function createDeviceMaintenanceHandler(request: Request, response: Response) {
+  const body = z
+    .object({
+      type: z.enum(["scheduled", "repair", "inspection", "replacement"]),
+      description: z.string().min(2),
+      performedAt: z.string().optional(),
+      cost: z.number().min(0).default(0),
+      notes: z.string().optional(),
+      status: z.enum(["planned", "in_progress", "completed"]).default("completed"),
+    })
+    .parse(request.body);
+
+  const log = await createMaintenanceLog({
+    deviceId: String(request.params.id),
+    type: body.type,
+    description: body.description,
+    performedBy: request.user?.id,
+    performedAt: body.performedAt ? new Date(body.performedAt) : undefined,
+    cost: body.cost,
+    notes: body.notes,
+    status: body.status,
+  });
+
+  response.status(201).json({ log: serializeMaintenanceLog(log) });
+}
+
+export async function deviceHealthHandler(_request: Request, response: Response) {
+  const upcoming = await getUpcomingMaintenance();
+  const devices = await Device.find({ status: "offline" });
+  response.json({
+    offlineDevices: devices.map(serializeDevice),
+    upcomingMaintenance: upcoming,
+  });
+}
+
+export async function healthCheckHandler(_request: Request, response: Response) {
+  const offlineCount = await checkOfflineDevices();
+  response.json({ offlineCount, message: `${offlineCount} camera đã được đánh dấu offline.` });
+}
+
+export async function updateScheduleHandler(request: Request, response: Response) {
+  const body = z.object({ intervalDays: z.number().int().min(1) }).parse(request.body);
+  await updateMaintenanceSchedule(String(request.params.id), body.intervalDays);
+  const device = await Device.findById(request.params.id);
+  response.json({ device: device ? serializeDevice(device) : null, message: "Đã cập nhật lịch bảo trì." });
+}

@@ -17,7 +17,9 @@ export type View =
   | "devices"
   | "security"
   | "zones"
-  | "parking-slots";
+  | "parking-slots"
+  | "reservations"
+  | "subscriptions";
 
 export type DemoUser = {
   id: number | string;
@@ -147,6 +149,13 @@ export type DeviceItem = {
   roiNote?: string;
   status: "online" | "offline" | "unknown";
   lastSnapshotUrl?: string;
+  healthCheckEnabled?: boolean;
+  offlineThresholdMinutes?: number;
+  maintenanceSchedule?: {
+    intervalDays: number;
+    lastMaintenanceAt?: string;
+    nextMaintenanceAt?: string;
+  };
 };
 
 export type ShiftItem = {
@@ -211,4 +220,94 @@ export type SlotMapEntry = {
   zoneId: string;
   zoneName: string;
   slots: ParkingSlot[];
+};
+
+// --- Reservation ---
+export type Reservation = {
+  id: string;
+  userId: string;
+  slotId: string;
+  slotCode: string;
+  zoneName: string;
+  vehicleType: string;
+  plate: string;
+  reservedFrom: string;
+  reservedUntil: string;
+  status: "pending" | "active" | "completed" | "cancelled" | "expired";
+  sessionId?: string;
+  depositAmount?: number;
+  cancelledAt?: string;
+  cancelReason?: string;
+  createdAt: string;
+};
+
+// --- Subscription ---
+export type SubscriptionPlan = {
+  id: string;
+  name: string;
+  description?: string;
+  duration: "monthly" | "quarterly" | "yearly";
+  durationDays: number;
+  price: number;
+  discountPercent: number;
+  maxVehicles: number;
+  features: string[];
+  isActive: boolean;
+};
+
+export type Subscription = {
+  id: string;
+  userId: string;
+  planId: string;
+  planName: string;
+  startDate: string;
+  endDate: string;
+  status: "active" | "expired" | "cancelled";
+  autoRenew: boolean;
+  plates: string[];
+  transactionId?: string;
+  renewalCount: number;
+  createdAt: string;
+};
+
+// --- Device Maintenance ---
+export type DeviceMaintenanceLog = {
+  id: string;
+  deviceId: string;
+  deviceName: string;
+  type: "scheduled" | "repair" | "inspection" | "replacement";
+  description: string;
+  performedBy?: string;
+  performedAt: string;
+  cost: number;
+  notes?: string;
+  status: "planned" | "in_progress" | "completed";
+  createdAt: string;
+};
+
+// --- Analytics ---
+export type RevenueChartPoint = {
+  date: string;
+  revenue: number;
+  count: number;
+};
+
+export type OccupancyHourPoint = {
+  hour: number;
+  avgOccupancy: number;
+  maxOccupancy: number;
+};
+
+export type TopCustomer = {
+  userId: string;
+  name: string;
+  email?: string;
+  sessionCount: number;
+  totalSpent: number;
+};
+
+export type PeakHourPoint = {
+  dayOfWeek: number;
+  hour: number;
+  count: number;
 };

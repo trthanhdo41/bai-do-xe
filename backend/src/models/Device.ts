@@ -1,5 +1,11 @@
 import mongoose, { Model, Schema } from "mongoose";
 
+export type MaintenanceSchedule = {
+  intervalDays: number;
+  lastMaintenanceAt?: Date;
+  nextMaintenanceAt?: Date;
+};
+
 export type DeviceDocument = {
   _id: mongoose.Types.ObjectId;
   name: string;
@@ -11,6 +17,9 @@ export type DeviceDocument = {
   status: "online" | "offline" | "unknown";
   lastSnapshotUrl?: string;
   lastSnapshotAt?: Date;
+  maintenanceSchedule?: MaintenanceSchedule;
+  healthCheckEnabled: boolean;
+  offlineThresholdMinutes: number;
   createdBy?: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -27,6 +36,18 @@ const deviceSchema = new Schema<DeviceDocument>(
     status: { type: String, enum: ["online", "offline", "unknown"], default: "unknown" },
     lastSnapshotUrl: { type: String },
     lastSnapshotAt: { type: Date },
+    maintenanceSchedule: {
+      type: new Schema(
+        {
+          intervalDays: { type: Number, default: 30 },
+          lastMaintenanceAt: { type: Date },
+          nextMaintenanceAt: { type: Date },
+        },
+        { _id: false },
+      ),
+    },
+    healthCheckEnabled: { type: Boolean, default: true },
+    offlineThresholdMinutes: { type: Number, default: 30 },
     createdBy: { type: Schema.Types.ObjectId, ref: "User" },
   },
   { timestamps: true },
