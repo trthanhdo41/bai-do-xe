@@ -1,10 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import { Camera, Download, ReceiptText, ScanLine, Search, ShieldAlert, Upload } from "lucide-react";
 
 import { useParkingApp } from "@/context/parking-app-context";
 import { apiFetch } from "@/lib/client-api";
 import { currency } from "@/lib/constants";
+
+const PAGE_SIZE = 6;
 
 export function SessionsView() {
   const {
@@ -21,6 +24,8 @@ export function SessionsView() {
     approveCheckout,
     createPaymentForSession,
   } = useParkingApp();
+
+  const [currentPage, setCurrentPage] = useState(1);
 
   if (!currentUser) {
     return null;
@@ -69,7 +74,7 @@ export function SessionsView() {
           <div className="search-box">
             <Search size={16} />
             <input
-              onChange={(event) => setSearchText(event.target.value)}
+              onChange={(event) => { setSearchText(event.target.value); setCurrentPage(1); }}
               placeholder="Tìm biển số, mã phiên"
               value={searchText}
             />
@@ -94,7 +99,9 @@ export function SessionsView() {
               </tr>
             </thead>
             <tbody>
-              {filteredSessions.map((session) => (
+              {filteredSessions
+                .slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+                .map((session) => (
                 <tr key={session.id}>
                   <td>{session.id}</td>
                   <td>{session.plate}</td>
@@ -128,7 +135,13 @@ export function SessionsView() {
                           : "Chưa thanh toán"}
                     </span>
                   </td>
-                  <td>{session.vehicleMatchScore ? `${session.vehicleMatchScore}%` : "Chưa có"}</td>
+                  <td>
+                    {session.vehicleMatchScore
+                      ? `${session.vehicleMatchScore}%`
+                      : session.entryConfidence
+                        ? `AI: ${session.entryConfidence}%`
+                        : "Chưa có"}
+                  </td>
                   <td>
                     <strong>
                       {session.feeBreakdown || session.status === "Đã hoàn thành"
@@ -206,6 +219,31 @@ export function SessionsView() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        {filteredSessions.length > PAGE_SIZE && (
+          <div className="pagination">
+            <button
+              className="small-button"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage((p) => p - 1)}
+              type="button"
+            >
+              ← Trước
+            </button>
+            <span className="pagination-info">
+              Trang {currentPage} / {Math.ceil(filteredSessions.length / PAGE_SIZE)} ({filteredSessions.length} phiên)
+            </span>
+            <button
+              className="small-button"
+              disabled={currentPage >= Math.ceil(filteredSessions.length / PAGE_SIZE)}
+              onClick={() => setCurrentPage((p) => p + 1)}
+              type="button"
+            >
+              Sau →
+            </button>
+          </div>
+        )}
       </div>
 
       {currentUser.role !== "customer" && (

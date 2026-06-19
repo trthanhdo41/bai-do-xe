@@ -55,13 +55,66 @@ def camera_url(value: str, username: str | None, password: str | None) -> str:
     return urlunsplit((parts.scheme, f"{auth}@{parts.netloc}", parts.path, parts.query, parts.fragment))
 
 
+def find_plate_region(image: Image.Image) -> Image.Image | None:
+    """
+    Try to locate the license plate region using OpenCV contour detection.
+    Returns cropped plate region or None if not found.
+    """
+    import numpy as np
+    img_array = np.array(image)
+    gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
+    # Apply bilateral filter to reduce noise while keeping edges sharp
+    filtered = cv2.bilateralFilter(gray, 11, 17, 17)
+    # Edge detection
+    edges = cv2.Canny(filtered, 30, 200)
+    # Find contours
+    contours, _ = cv2.findContours(edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    # Sort by area descending
+    contours = sorted(contours, key=cv2.contourArea, reverse=True)[:30]
+
+    plate_region = None
+    for contour in contours:
+        peri = cv2.arcLength(contour, True)
+        approx = cv2.approxPolyDP(contour, 0.02 * peri, True)
+        # License plates are roughly rectangular (4 corners)
+        if len(approx) == 4:
+            x, y, w, h = cv2.boundingRect(approx)
+            aspect_ratio = w / h if h > 0 else 0
+            # Vietnamese plates: aspect ratio between 2.0 and 5.5
+            if 1.5 < aspect_ratio < 6.0 and w > 60 and h > 20:
+                # Add padding
+                pad = 5
+                x1 = max(0, x - pad)
+                y1 = max(0, y - pad)
+                x2 = min(img_array.shape[1], x + w + pad)
+                y2 = min(img_array.shape[0], y + h + pad)
+                plate_region = image.crop((x1, y1, x2, y2))
+                break
+
+    return plate_region
+
+
 def preprocess_variants(image: Image.Image) -> list[Image.Image]:
-    gray = ImageOps.grayscale(image)
+    # Try to find and crop plate region first
+    plate = find_plate_region(image)
+    source = plate if plate else image
+
+    gray = ImageOps.grayscale(source)
     resized = gray.resize((gray.width * 2, gray.height * 2))
     sharp = resized.filter(ImageFilter.SHARPEN)
     threshold = sharp.point(lambda pixel: 255 if pixel > 150 else 0)
     inverted = ImageOps.invert(threshold)
-    return [resized, sharp, threshold, inverted]
+
+    variants = [resized, sharp, threshold, inverted]
+    # If we found plate region, also add full-image variants as fallback
+    if plate:
+        full_gray = ImageOps.grayscale(image)
+        full_resized = full_gray.resize((full_gray.width * 2, full_gray.height * 2))
+        full_sharp = full_resized.filter(ImageFilter.SHARPEN)
+        variants.append(full_resized)
+        variants.append(full_sharp)
+
+    return variants
 
 
 def average_hash(image: Image.Image) -> str:

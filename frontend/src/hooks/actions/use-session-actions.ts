@@ -18,7 +18,8 @@ export function createSessionActions({
 }: SessionActionsParams) {
   async function createSession(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const owner = String(form.get("owner") ?? "Khách vãng lai");
     const image = form.get("entryImage");
 
@@ -43,15 +44,17 @@ export function createSessionActions({
       setSessions((items) => [data.session, ...items]);
       setExitSessionId(data.session.id);
       setActionLog(`Đã nhận diện biển ${data.detection.plate} và ghi nhận xe vào MongoDB.`);
-      event.currentTarget.reset();
-    } catch {
-      setActionLog("Không kết nối được API nhận diện ảnh xe vào. Kiểm tra AI service Python.");
+      formElement.reset();
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "";
+      setActionLog(msg || "Không kết nối được API nhận diện ảnh xe vào. Kiểm tra AI service Python.");
     }
   }
 
   async function checkoutWithImage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const sessionId = String(form.get("sessionId") ?? "");
     const image = form.get("exitImage");
 
@@ -74,9 +77,10 @@ export function createSessionActions({
 
       setSessions((items) => items.map((item) => (item.id === sessionId ? data.session : item)));
       setActionLog(data.message);
-      event.currentTarget.reset();
-    } catch {
-      setActionLog("Không kết nối được API nhận diện ảnh xe ra. Kiểm tra AI service Python.");
+      formElement.reset();
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "";
+      setActionLog(msg || "Không kết nối được API nhận diện ảnh xe ra. Kiểm tra AI service Python.");
     }
   }
 
