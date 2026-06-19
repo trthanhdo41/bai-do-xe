@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Camera, Download, ReceiptText, ScanLine, Search, ShieldAlert, Upload } from "lucide-react";
 
 import { useParkingApp } from "@/context/parking-app-context";
@@ -8,6 +8,36 @@ import { apiFetch } from "@/lib/client-api";
 import { currency } from "@/lib/constants";
 
 const PAGE_SIZE = 6;
+
+function LiveMinutes({ checkIn }: { checkIn: string }) {
+  const [minutes, setMinutes] = useState(0);
+
+  useEffect(() => {
+    function calc() {
+      // checkIn is "HH:MM" format from serializer
+      const now = new Date();
+      const [h, m] = checkIn.split(":").map(Number);
+      const checkInDate = new Date();
+      checkInDate.setHours(h, m, 0, 0);
+      // If checkIn time is in the future (edge case), assume yesterday
+      if (checkInDate > now) checkInDate.setDate(checkInDate.getDate() - 1);
+      const diff = Math.floor((now.getTime() - checkInDate.getTime()) / 60000);
+      setMinutes(diff);
+    }
+    calc();
+    const interval = setInterval(calc, 60000); // update every minute
+    return () => clearInterval(interval);
+  }, [checkIn]);
+
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+
+  return (
+    <span className="muted-cell" style={{ color: "var(--primary)" }}>
+      ⏱ {hours > 0 ? `${hours}h ${mins}m` : `${mins} phút`}
+    </span>
+  );
+}
 
 export function SessionsView() {
   const {
@@ -148,11 +178,13 @@ export function SessionsView() {
                         ? currency.format(session.fee)
                         : "Chưa tính"}
                     </strong>
-                    {session.feeBreakdown && (
+                    {session.feeBreakdown ? (
                       <span className="muted-cell">
                         {session.feeBreakdown.totalMinutes} phút, {session.feeBreakdown.billableHours} giờ tính phí
                       </span>
-                    )}
+                    ) : session.status === "Đang gửi" && session.checkIn ? (
+                      <LiveMinutes checkIn={session.checkIn} />
+                    ) : null}
                   </td>
                   <td>
                     <div className="inline-actions">
