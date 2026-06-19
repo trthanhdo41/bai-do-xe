@@ -193,7 +193,6 @@ export function PublicLanding() {
         <nav className="topbar">
           <div className="brand"><ParkingCircle size={28} /><span>{parkingConfig.brandName}</span></div>
           <div className="top-actions">
-            <a href="#features">Tính năng</a>
             <a href="#availability">Chỗ trống</a>
             <a href="#contact">Liên hệ</a>
             <button onClick={() => setMode("login")} type="button"><LogIn size={16} />Đăng nhập</button>
@@ -216,37 +215,6 @@ export function PublicLanding() {
             </div>
           </div>
           <AuthPanel />
-        </div>
-      </section>
-
-      {/* Features */}
-      <section className="landing-section" id="features">
-        <div className="section-header">
-          <span className="section-kicker">Tính năng nổi bật</span>
-          <h2>Tại sao chọn {parkingConfig.brandName}?</h2>
-          <p>Giải pháp toàn diện cho bãi đỗ xe hiện đại</p>
-        </div>
-        <div className="features-grid">
-          <div className="feature-card">
-            <div className="feature-icon"><Car size={24} /></div>
-            <h3>Nhận diện AI</h3>
-            <p>Tự động nhận diện biển số bằng AI khi xe vào/ra, giảm thiểu thao tác thủ công.</p>
-          </div>
-          <div className="feature-card">
-            <div className="feature-icon"><Zap size={24} /></div>
-            <h3>Thanh toán tự động</h3>
-            <p>Tính phí thông minh, thanh toán qua ví điện tử hoặc VietQR không cần tiền mặt.</p>
-          </div>
-          <div className="feature-card">
-            <div className="feature-icon"><Shield size={24} /></div>
-            <h3>Bảo mật cao</h3>
-            <p>Xác thực 2 yếu tố, mã hóa dữ liệu, phân quyền chi tiết theo vai trò.</p>
-          </div>
-          <div className="feature-card">
-            <div className="feature-icon"><Clock3 size={24} /></div>
-            <h3>Realtime</h3>
-            <p>Theo dõi trạng thái bãi xe, chỗ trống, camera trực tiếp 24/7.</p>
-          </div>
         </div>
       </section>
 
