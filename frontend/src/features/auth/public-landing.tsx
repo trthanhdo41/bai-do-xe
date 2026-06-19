@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
   Car,
   Camera,
@@ -9,6 +10,7 @@ import {
   Mail,
   ParkingCircle,
   Plus,
+  Search,
   UserRound,
 } from "lucide-react";
 
@@ -16,6 +18,128 @@ import { Metric } from "@/components/ui/metric";
 import { useParkingApp } from "@/context/parking-app-context";
 import { apiBaseUrl } from "@/lib/constants";
 import { parkingConfig } from "@/lib/parking-config";
+
+type ZoneAvailability = {
+  zone: string;
+  description?: string;
+  total: number;
+  available: number;
+  occupied: number;
+  allowedVehicleTypes: string[];
+};
+
+function ParkingAvailability() {
+  const [zones, setZones] = useState<ZoneAvailability[]>([]);
+  const [totalAvailable, setTotalAvailable] = useState(0);
+  const [totalCapacity, setTotalCapacity] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<{ zone: string; description?: string; available: number; total: number }[]>([]);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    async function loadAvailability() {
+      try {
+        const response = await fetch(`${apiBaseUrl}/public/availability`);
+        if (response.ok) {
+          const data = await response.json();
+          setZones(data.zones);
+          setTotalAvailable(data.available);
+          setTotalCapacity(data.capacity);
+          setLoaded(true);
+        }
+      } catch {
+        // Silently fail for public page
+      }
+    }
+    loadAvailability();
+    // Refresh every 30 seconds
+    const interval = setInterval(loadAvailability, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  async function handleSearch() {
+    if (!searchQuery.trim()) return;
+    try {
+      const response = await fetch(`${apiBaseUrl}/public/search?q=${encodeURIComponent(searchQuery)}`);
+      if (response.ok) {
+        const data = await response.json();
+        setSearchResults(data.results);
+      }
+    } catch {
+      // Silently fail
+    }
+  }
+
+  return (
+    <div>
+      {/* Search */}
+      <div className="filter-row" style={{ marginBottom: 16 }}>
+        <div className="search-box" style={{ flex: 1 }}>
+          <Search size={16} />
+          <input
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+            placeholder="Tìm khu vực, loại xe..."
+            value={searchQuery}
+          />
+        </div>
+        <button className="small-button" onClick={handleSearch} type="button">Tìm kiếm</button>
+      </div>
+
+      {/* Search results */}
+      {searchResults.length > 0 && (
+        <div className="metric-grid" style={{ marginBottom: 20 }}>
+          {searchResults.map((r) => (
+            <div className="metric-card" key={r.zone}>
+              <span>Khu {r.zone}</span>
+              <strong>{r.available} / {r.total} trống</strong>
+              {r.description && <span style={{ fontSize: "0.75rem" }}>{r.description}</span>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Realtime availability grid */}
+      {loaded && (
+        <>
+          <div className="metric-grid" style={{ marginBottom: 12 }}>
+            <Metric icon={<Car />} label="Tổng chỗ trống" value={String(totalAvailable)} />
+            <Metric icon={<CheckCircle2 />} label="Tổng sức chứa" value={String(totalCapacity)} />
+            <Metric icon={<Camera />} label="Tỷ lệ lấp đầy" value={totalCapacity > 0 ? `${Math.round(((totalCapacity - totalAvailable) / totalCapacity) * 100)}%` : "0%"} />
+            <Metric icon={<Clock3 />} label="Miễn phí đầu" value={`${parkingConfig.freeMinutes} phút`} />
+          </div>
+
+          <div className="plan-cards">
+            {zones.map((zone) => (
+              <div className="plan-card" key={zone.zone}>
+                <h3>Khu {zone.zone}</h3>
+                <p className="plan-price">{zone.available}<span> / {zone.total} trống</span></p>
+                <ul>
+                  <li>{zone.description || "Khu đỗ xe"}</li>
+                  <li>Loại xe: {zone.allowedVehicleTypes.join(", ")}</li>
+                  <li>Đang đỗ: {zone.occupied} xe</li>
+                </ul>
+                <div style={{ marginTop: 8 }}>
+                  <div style={{ background: "#e5e7eb", borderRadius: 4, height: 8, overflow: "hidden" }}>
+                    <div
+                      style={{
+                        background: zone.available > 0 ? "#16a34a" : "#dc2626",
+                        height: "100%",
+                        width: `${zone.total > 0 ? ((zone.total - zone.available) / zone.total) * 100 : 0}%`,
+                        transition: "width 0.3s",
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+      {!loaded && <p className="muted-cell">Đang tải thông tin bãi xe...</p>}
+    </div>
+  );
+}
 
 export function AuthPanel() {
   const { mode, setMode, authError, handleLogin, handleRegister, handleForgotPassword } = useParkingApp();
@@ -180,14 +304,9 @@ export function PublicLanding() {
       <section className="public-section">
         <div>
           <span className="section-kicker">Tình trạng bãi xe</span>
-          <h2>{parkingConfig.totalCapacity} vị trí ô tô, chia khu A/B/C</h2>
+          <h2>Tìm kiếm và xem chỗ trống realtime</h2>
         </div>
-        <div className="metric-grid">
-          <Metric icon={<Car />} label="Xe đang gửi" value={String(stats.active)} />
-          <Metric icon={<CheckCircle2 />} label="Chỗ còn trống" value={String(stats.available)} />
-          <Metric icon={<Camera />} label="Camera cấu hình" value="2 cổng" />
-          <Metric icon={<Clock3 />} label="Miễn phí đầu" value={`${parkingConfig.freeMinutes} phút`} />
-        </div>
+        <ParkingAvailability />
       </section>
 
       <section className="public-section compact" id="contact">

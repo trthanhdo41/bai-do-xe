@@ -1,8 +1,9 @@
 "use client";
 
-import { Camera, ReceiptText, ScanLine, Search, Upload } from "lucide-react";
+import { Camera, Download, ReceiptText, ScanLine, Search, ShieldAlert, Upload } from "lucide-react";
 
 import { useParkingApp } from "@/context/parking-app-context";
+import { apiFetch } from "@/lib/client-api";
 import { currency } from "@/lib/constants";
 
 export function SessionsView() {
@@ -141,25 +142,64 @@ export function SessionsView() {
                     )}
                   </td>
                   <td>
-                    {session.verificationStatus === "Chờ duyệt" && currentUser.role === "admin" ? (
-                      <button
-                        className="small-button"
-                        onClick={() => approveCheckout(session.id, session.exitDetectedPlate || session.plate)}
-                        type="button"
-                      >
-                        Duyệt
-                      </button>
-                    ) : session.status === "Đã hoàn thành" && session.fee > 0 && session.paymentStatus !== "paid" ? (
-                      <button className="small-button" onClick={() => createPaymentForSession(session.id)} type="button">
-                        QR
-                      </button>
-                    ) : session.status === "Đang gửi" && currentUser.role !== "customer" ? (
-                      <button className="small-button" onClick={() => setExitSessionId(session.id)} type="button">
-                        Chọn checkout
-                      </button>
-                    ) : (
-                      <ReceiptText size={18} />
-                    )}
+                    <div className="inline-actions">
+                      {/* Overdue badge */}
+                      {session.status === "Đang gửi" && (session as any).isOverstayed && (
+                        <span className="badge warning" title={`Quá hạn ${(session as any).overdueMinutes || 0} phút`}>
+                          <ShieldAlert size={12} /> Quá hạn
+                        </span>
+                      )}
+                      {/* Waive penalty - admin/staff */}
+                      {(session as any).isOverstayed && currentUser.role !== "customer" && (
+                        <button
+                          className="small-button"
+                          onClick={async () => {
+                            await apiFetch(`/parking-sessions/${session.id}/waive-penalty`, {
+                              method: "POST",
+                              body: JSON.stringify({ reason: "Miễn phạt từ UI" }),
+                            });
+                          }}
+                          title="Miễn phạt"
+                          type="button"
+                        >
+                          Miễn phạt
+                        </button>
+                      )}
+                      {/* Receipt download */}
+                      {session.status === "Đã hoàn thành" && (
+                        <a
+                          className="small-button"
+                          href={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api"}/parking-sessions/${session.id}/receipt/pdf`}
+                          rel="noreferrer"
+                          target="_blank"
+                          title="Tải biên lai"
+                        >
+                          <Download size={14} />
+                        </a>
+                      )}
+                      {/* Approve checkout */}
+                      {session.verificationStatus === "Chờ duyệt" && currentUser.role === "admin" && (
+                        <button
+                          className="small-button"
+                          onClick={() => approveCheckout(session.id, session.exitDetectedPlate || session.plate)}
+                          type="button"
+                        >
+                          Duyệt
+                        </button>
+                      )}
+                      {/* Create QR payment */}
+                      {session.status === "Đã hoàn thành" && session.fee > 0 && session.paymentStatus !== "paid" && (
+                        <button className="small-button" onClick={() => createPaymentForSession(session.id)} type="button">
+                          QR
+                        </button>
+                      )}
+                      {/* Select for checkout */}
+                      {session.status === "Đang gửi" && currentUser.role !== "customer" && !(session as any).isOverstayed && (
+                        <button className="small-button" onClick={() => setExitSessionId(session.id)} type="button">
+                          Checkout
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
