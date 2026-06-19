@@ -6,7 +6,6 @@ import { Camera, ClipboardList, Power, RefreshCcw, Wrench } from "lucide-react";
 import { DataTable } from "@/components/ui/data-table";
 import { useParkingApp } from "@/context/parking-app-context";
 import { apiFetch } from "@/lib/client-api";
-import { fallbackDevices } from "@/lib/mock-data";
 
 type MaintenanceLog = {
   id: string;
@@ -25,7 +24,7 @@ export function DevicesView() {
   const [logsLoaded, setLogsLoaded] = useState(false);
   const [msg, setMsg] = useState("");
 
-  const displayDevices = deviceList.length ? deviceList : fallbackDevices();
+  const displayDevices = deviceList;
   const isAdmin = currentUser?.role === "admin";
 
   async function restartDevice(id: string) {

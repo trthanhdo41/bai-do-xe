@@ -141,42 +141,79 @@ function ParkingAvailability() {
 }
 
 export function AuthPanel() {
-  const { mode, setMode, authError, handleLogin, handleRegister, handleForgotPassword } = useParkingApp();
+  const { mode, setMode, handleLogin, handleRegister, handleForgotPassword } = useParkingApp();
 
   return (
     <div className="auth-panel">
+      <div className="auth-panel-header">
+        <ParkingCircle size={24} />
+        <span>iPARK</span>
+      </div>
       <div className="segmented">
         <button className={mode === "login" ? "active" : ""} onClick={() => setMode("login")} type="button">Đăng nhập</button>
         <button className={mode === "register" ? "active" : ""} onClick={() => setMode("register")} type="button">Đăng ký</button>
       </div>
+
       {mode === "login" && (
         <form onSubmit={handleLogin}>
-          <label>Email<input name="email" defaultValue="admin@ipark.vn" type="email" /></label>
-          <label>Mật khẩu<input name="password" defaultValue="admin" type="password" /></label>
-          <label>Mã 2FA<input name="twoFactorCode" placeholder="Nhập nếu tài khoản đã bật 2FA" /></label>
-          {authError && <p className="form-error">{authError}</p>}
-          <button className="full-button" type="submit"><LogIn size={18} />Vào hệ thống</button>
-          <button className="secondary-button full-button" onClick={() => { window.location.href = `${apiBaseUrl}/auth/google`; }} type="button"><LogIn size={18} />Đăng nhập với Google</button>
-          <button className="link-button" onClick={() => setMode("forgot")} type="button">Quên mật khẩu / gửi OTP</button>
-          <div className="demo-accounts"><span>TÀI KHOẢN:</span><code>admin@ipark.vn / admin</code><code>nv.1@ipark.vn / 123456</code></div>
+          <label>
+            <span className="label-text">Email</span>
+            <input name="email" defaultValue="admin@ipark.vn" type="email" placeholder="you@email.com" />
+          </label>
+          <label>
+            <span className="label-text">Mật khẩu</span>
+            <input name="password" defaultValue="admin" type="password" placeholder="••••••" />
+          </label>
+          <label>
+            <span className="label-text">Mã 2FA <span className="optional">(nếu có)</span></span>
+            <input name="twoFactorCode" placeholder="6 chữ số" />
+          </label>
+          <button className="full-button" type="submit"><LogIn size={18} />Đăng nhập</button>
+          <div className="auth-divider"><span>hoặc</span></div>
+          <button className="secondary-button full-button" onClick={() => { window.location.href = `${apiBaseUrl}/auth/google`; }} type="button">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+            Đăng nhập với Google
+          </button>
+          <button className="link-button" onClick={() => setMode("forgot")} type="button">Quên mật khẩu?</button>
         </form>
       )}
+
       {mode === "register" && (
         <form onSubmit={handleRegister}>
-          <label>Họ tên<input name="name" placeholder="Nhập họ tên" required /></label>
-          <label>Email<input name="email" placeholder="email@example.com" required type="email" /></label>
-          <label>Mật khẩu<input name="password" placeholder="Tối thiểu 6 ký tự" required type="password" /></label>
+          <label>
+            <span className="label-text">Họ tên</span>
+            <input name="name" placeholder="Nguyễn Văn A" required />
+          </label>
+          <label>
+            <span className="label-text">Email</span>
+            <input name="email" placeholder="you@email.com" required type="email" />
+          </label>
+          <label>
+            <span className="label-text">Mật khẩu</span>
+            <input name="password" placeholder="Tối thiểu 6 ký tự" required type="password" />
+          </label>
           <button className="full-button" type="submit"><Plus size={18} />Tạo tài khoản</button>
+          <button className="link-button" onClick={() => setMode("login")} type="button">Đã có tài khoản? Đăng nhập</button>
         </form>
       )}
+
       {mode === "forgot" && (
         <form onSubmit={handleForgotPassword}>
-          <label>Email nhận OTP<input name="email" placeholder="email@example.com" required type="email" /></label>
-          <label>Mã OTP<input name="otp" placeholder="123456" /></label>
-          <label>Mật khẩu mới<input name="password" placeholder="Tối thiểu 6 ký tự" type="password" /></label>
-          {authError && <p className="form-info">{authError}</p>}
-          <button className="full-button" type="submit"><Mail size={18} />Gửi / xác minh OTP</button>
-          <button className="link-button" onClick={() => setMode("login")} type="button">Quay lại đăng nhập</button>
+          <p className="auth-subtitle">Nhập email để nhận mã OTP. Sau đó điền OTP và mật khẩu mới.</p>
+          <label>
+            <span className="label-text">Email</span>
+            <input name="email" placeholder="you@email.com" required type="email" />
+          </label>
+          <label>
+            <span className="label-text">Mã OTP</span>
+            <input name="otp" placeholder="6 chữ số từ email" />
+          </label>
+          <label>
+            <span className="label-text">Mật khẩu mới</span>
+            <input name="password" placeholder="Tối thiểu 6 ký tự" type="password" />
+          </label>
+          <button className="full-button" type="submit"><Mail size={18} />Xác minh & đặt lại</button>
+          <button className="link-button" onClick={() => setMode("login")} type="button">← Quay lại đăng nhập</button>
         </form>
       )}
     </div>
@@ -184,7 +221,23 @@ export function AuthPanel() {
 }
 
 export function PublicLanding() {
-  const { stats, setMode } = useParkingApp();
+  const { setMode } = useParkingApp();
+  const [liveStats, setLiveStats] = useState({ active: 0, available: 0 });
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const r = await fetch(`${apiBaseUrl}/public/availability`);
+        if (r.ok) {
+          const d = await r.json();
+          setLiveStats({ available: d.available, active: d.capacity - d.available });
+        }
+      } catch { /* silent */ }
+    }
+    load();
+    const i = setInterval(load, 30000);
+    return () => clearInterval(i);
+  }, []);
 
   return (
     <main className="public-shell">
@@ -205,8 +258,8 @@ export function PublicLanding() {
             <h1>Đỗ xe dễ dàng với <span className="hero-highlight">{parkingConfig.brandName}</span></h1>
             <p>Nhận diện biển số tự động bằng AI, theo dõi chỗ trống realtime, thanh toán không tiền mặt và quản lý vận hành toàn diện.</p>
             <div className="status-strip">
-              <div><span>Đang gửi</span><strong>{stats.active} xe</strong></div>
-              <div><span>Còn trống</span><strong>{stats.available} chỗ</strong></div>
+              <div><span>Đang gửi</span><strong>{liveStats.active} xe</strong></div>
+              <div><span>Còn trống</span><strong>{liveStats.available} chỗ</strong></div>
               <div><span>Camera AI</span><strong>2 cổng</strong></div>
             </div>
             <div className="hero-actions">

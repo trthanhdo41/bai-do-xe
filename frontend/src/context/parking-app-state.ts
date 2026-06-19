@@ -1,9 +1,6 @@
 import {
-  demoUsers,
   initialPaymentConfig,
   initialPricingConfig,
-  initialSessions,
-  initialVehicles,
 } from "@/lib/mock-data";
 import { todayInputValue } from "@/lib/constants";
 import type {
@@ -72,13 +69,13 @@ export function createInitialState(): ParkingAppState {
   return {
     mode: "login",
     currentUser: null,
-    sessions: initialSessions,
-    registeredVehicles: initialVehicles,
-    userList: demoUsers,
+    sessions: [],
+    registeredVehicles: [],
+    userList: [],
     searchText: "",
     authError: "",
     mobileNavOpen: false,
-    actionLog: "Sẵn sàng vận hành.",
+    actionLog: "",
     exitSessionId: "",
     pricingConfigState: initialPricingConfig,
     paymentConfigState: initialPaymentConfig,

@@ -7,8 +7,6 @@ import { DataTable } from "@/components/ui/data-table";
 import { useParkingApp } from "@/context/parking-app-context";
 import { apiFetch } from "@/lib/client-api";
 import { currency } from "@/lib/constants";
-import { transactions } from "@/lib/mock-data";
-import type { TransactionItem } from "@/types";
 
 export function WalletView() {
   const {
@@ -23,16 +21,7 @@ export function WalletView() {
 
   if (!currentUser) return null;
 
-  const displayTransactions: TransactionItem[] = transactionList.length
-    ? transactionList
-    : transactions.map((item) => ({
-        id: item.id,
-        method: item.method,
-        amount: item.amount,
-        status: item.status === "Thành công" ? "paid" : "pending",
-        content: item.id,
-        createdAt: item.time,
-      }));
+  const displayTransactions = transactionList;
 
   async function handleTopUp(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

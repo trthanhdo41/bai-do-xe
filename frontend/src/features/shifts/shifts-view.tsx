@@ -7,7 +7,6 @@ import { DataTable } from "@/components/ui/data-table";
 import { useParkingApp } from "@/context/parking-app-context";
 import { apiFetch } from "@/lib/client-api";
 import { currency } from "@/lib/constants";
-import { fallbackShifts } from "@/lib/mock-data";
 
 type ShiftReport = {
   totalSessions: number;
@@ -23,7 +22,7 @@ export function ShiftsView() {
   const [reportMsg, setReportMsg] = useState("");
   const [showReportForm, setShowReportForm] = useState<string | null>(null);
 
-  const displayShifts = shiftList.length ? shiftList : fallbackShifts();
+  const displayShifts = shiftList;
 
   async function submitReport(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
