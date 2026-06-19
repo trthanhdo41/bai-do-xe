@@ -4,6 +4,7 @@ import { devicesRoutes } from "./devices.routes.js";
 import { feedbackRoutes } from "./feedback.routes.js";
 import { incidentsRoutes } from "./incidents.routes.js";
 import { notificationsRoutes } from "./notifications.routes.js";
+import { notificationTemplatesRoutes } from "./notificationTemplates.routes.js";
 import { parkingSessionsRoutes } from "./parkingSessions.routes.js";
 import { parkingSlotsRoutes } from "./parkingSlots.routes.js";
 import { paymentConfigRoutes } from "./paymentConfig.routes.js";
@@ -20,6 +21,12 @@ import { zonesRoutes } from "./zones.routes.js";
 export const apiRoutes = Router();
 
 apiRoutes.get("/health", (_request, response) => response.json({ ok: true, service: "ipark-backend" }));
+
+// Public endpoints (no auth)
+import { publicAvailability, publicSearch } from "../controllers/public.controller.js";
+apiRoutes.get("/public/availability", publicAvailability);
+apiRoutes.get("/public/search", publicSearch);
+
 apiRoutes.use("/auth", authRoutes);
 apiRoutes.use("/users", usersRoutes);
 apiRoutes.use("/vehicles", vehiclesRoutes);
@@ -35,5 +42,6 @@ apiRoutes.use("/reservations", reservationsRoutes);
 apiRoutes.use("/subscriptions", subscriptionsRoutes);
 apiRoutes.use("/feedback", feedbackRoutes);
 apiRoutes.use("/notifications", notificationsRoutes);
+apiRoutes.use("/notification-templates", notificationTemplatesRoutes);
 apiRoutes.use("/shifts", shiftsRoutes);
 apiRoutes.use("/incidents", incidentsRoutes);

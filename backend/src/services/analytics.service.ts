@@ -159,3 +159,140 @@ export async function getPeakHoursAnalysis(from: Date, to: Date): Promise<PeakHo
     count: r.count,
   }));
 }
+
+/**
+ * RP-06: Entry count by zone within date range.
+ */
+export async function getEntryByZone(from: Date, to: Date) {
+  const results = await ParkingSession.aggregate([
+    { $match: { checkInAt: { $gte: from, $lte: to } } },
+    { $group: { _id: "$zone", entryCount: { $sum: 1 } } },
+    { $sort: { entryCount: -1 } },
+  ]);
+
+  return results.map((r) => ({
+    zone: r._id || "Không xác định",
+    entryCount: r.entryCount,
+  }));
+}
+
+/**
+ * RP-07: Exit count by zone within date range.
+ */
+export async function getExitByZone(from: Date, to: Date) {
+  const results = await ParkingSession.aggregate([
+    { $match: { status: "Đã hoàn thành", checkOutAt: { $gte: from, $lte: to } } },
+    { $group: { _id: "$zone", exitCount: { $sum: 1 }, revenue: { $sum: "$fee" } } },
+    { $sort: { exitCount: -1 } },
+  ]);
+
+  return results.map((r) => ({
+    zone: r._id || "Không xác định",
+    exitCount: r.exitCount,
+    revenue: r.revenue,
+  }));
+}
+
+/**
+ * RP-08: Penalty/overdue report — sessions that were flagged overdue.
+ */
+export async function getPenaltyReport(from: Date, to: Date) {
+  const results = await ParkingSession.aggregate([
+    {
+      $match: {
+        isOverstayed: true,
+        checkInAt: { $gte: from, $lte: to },
+      },
+    },
+    {
+      $group: {
+        _id: null,
+        totalOverdue: { $sum: 1 },
+        totalOverdueMinutes: { $sum: "$overdueMinutes" },
+        avgOverdueMinutes: { $avg: "$overdueMinutes" },
+      },
+    },
+  ]);
+
+  const sessions = await ParkingSession.find({
+    isOverstayed: true,
+    checkInAt: { $gte: from, $lte: to },
+  })
+    .sort({ overdueMinutes: -1 })
+    .limit(20)
+    .select("plate ownerName slot zone overdueMinutes fee checkInAt");
+
+  const summary = results[0] || { totalOverdue: 0, totalOverdueMinutes: 0, avgOverdueMinutes: 0 };
+
+  return {
+    summary: {
+      totalOverdue: summary.totalOverdue,
+      totalOverdueMinutes: summary.totalOverdueMinutes,
+      avgOverdueMinutes: Math.round(summary.avgOverdueMinutes || 0),
+    },
+    topOverdue: sessions.map((s) => ({
+      id: s._id.toString(),
+      plate: s.plate,
+      ownerName: s.ownerName,
+      slot: s.slot,
+      zone: (s as any).zone || "—",
+      overdueMinutes: (s as any).overdueMinutes || 0,
+      fee: s.fee,
+    })),
+  };
+}
+
+/**
+ * RP-09: Wallet activity report — top-ups and auto-deductions.
+ */
+export async function getWalletReport(from: Date, to: Date) {
+  // Top-up transactions
+  const topUps = await Transaction.aggregate([
+    {
+      $match: {
+        content: { $regex: /^TOPUP/ },
+        status: "paid",
+        paidAt: { $gte: from, $lte: to },
+      },
+    },
+    {
+      $group: {
+        _id: null,
+        totalTopUps: { $sum: 1 },
+        totalTopUpAmount: { $sum: "$amount" },
+      },
+    },
+  ]);
+
+  // Wallet-paid sessions (paymentMethod = "wallet")
+  const walletPayments = await ParkingSession.aggregate([
+    {
+      $match: {
+        paymentMethod: "wallet",
+        checkOutAt: { $gte: from, $lte: to },
+      },
+    },
+    {
+      $group: {
+        _id: null,
+        totalWalletPayments: { $sum: 1 },
+        totalWalletAmount: { $sum: "$fee" },
+      },
+    },
+  ]);
+
+  const topUpData = topUps[0] || { totalTopUps: 0, totalTopUpAmount: 0 };
+  const paymentData = walletPayments[0] || { totalWalletPayments: 0, totalWalletAmount: 0 };
+
+  return {
+    topUps: {
+      count: topUpData.totalTopUps,
+      amount: topUpData.totalTopUpAmount,
+    },
+    walletPayments: {
+      count: paymentData.totalWalletPayments,
+      amount: paymentData.totalWalletAmount,
+    },
+    netFlow: topUpData.totalTopUpAmount - paymentData.totalWalletAmount,
+  };
+}

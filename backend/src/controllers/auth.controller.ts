@@ -54,6 +54,10 @@ export async function register(request: Request, response: Response) {
   const serialized = serializeUser(user);
   const token = await signSession(serialized);
 
+  // CU-22: Notify on registration
+  const { notifyRegistration } = await import("../services/notificationTriggers.service.js");
+  await notifyRegistration(user._id.toString(), user.name);
+
   response.cookie(cookieName, token, cookieOptions()).status(201).json({ user: serialized });
 }
 
@@ -344,4 +348,105 @@ export function logout(_request: Request, response: Response) {
 
 export function me(request: Request, response: Response) {
   response.json({ user: request.user ?? null });
+}
+
+export async function changePassword(request: Request, response: Response) {
+  const body = z
+    .object({
+      currentPassword: z.string().min(1),
+      newPassword: z.string().min(6),
+    })
+    .parse(request.body);
+
+  const user = await User.findById(request.user?.id);
+  if (!user) {
+    response.status(401).json({ message: "Chưa đăng nhập." });
+    return;
+  }
+
+  const valid = await bcrypt.compare(body.currentPassword, user.passwordHash);
+  if (!valid) {
+    response.status(400).json({ message: "Mật khẩu hiện tại không đúng." });
+    return;
+  }
+
+  user.passwordHash = await bcrypt.hash(body.newPassword, 12);
+  await user.save();
+  response.json({ ok: true, message: "Đã thay đổi mật khẩu." });
+}
+
+export async function resendOtp(request: Request, response: Response) {
+  const body = z.object({ email: z.email() }).parse(request.body);
+  const email = body.email.toLowerCase();
+  const user = await User.findOne({ email });
+  const otp = String(Math.floor(100000 + Math.random() * 900000));
+
+  if (user) {
+    const otpHash = await bcrypt.hash(otp, 12);
+    await OtpToken.create({
+      email,
+      otpHash,
+      purpose: "reset-password",
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+    });
+
+    await sendMail(
+      email,
+      "Mã OTP đặt lại mật khẩu iPARK (gửi lại)",
+      `Mã OTP mới của bạn là ${otp}. Mã có hiệu lực trong 5 phút.`,
+    );
+  }
+
+  response.json({
+    ok: true,
+    message: smtpConfigured()
+      ? "Đã gửi lại OTP."
+      : "SMTP chưa cấu hình, OTP demo trong phản hồi.",
+    ...(smtpConfigured() || !user ? {} : { devOtp: otp }),
+  });
+}
+
+// --- Active Sessions Management (AU-14) ---
+import { ActiveSession } from "../models/ActiveSession.js";
+
+export async function listActiveSessions(request: Request, response: Response) {
+  const sessions = await ActiveSession.find({
+    userId: request.user?.id,
+    isRevoked: false,
+    expiresAt: { $gt: new Date() },
+  }).sort({ lastActiveAt: -1 });
+
+  response.json({
+    sessions: sessions.map((s) => ({
+      id: s._id.toString(),
+      userAgent: s.userAgent,
+      ipAddress: s.ipAddress,
+      loginAt: s.loginAt.toISOString(),
+      lastActiveAt: s.lastActiveAt.toISOString(),
+      expiresAt: s.expiresAt.toISOString(),
+    })),
+  });
+}
+
+export async function revokeSession(request: Request, response: Response) {
+  const sessionId = String(request.params.id);
+  const session = await ActiveSession.findOne({
+    _id: sessionId,
+    userId: request.user?.id,
+  });
+  if (!session) {
+    response.status(404).json({ message: "Phiên không tồn tại." });
+    return;
+  }
+  session.isRevoked = true;
+  await session.save();
+  response.json({ ok: true, message: "Đã thu hồi phiên đăng nhập." });
+}
+
+export async function revokeAllSessions(request: Request, response: Response) {
+  await ActiveSession.updateMany(
+    { userId: request.user?.id, isRevoked: false },
+    { $set: { isRevoked: true } },
+  );
+  response.json({ ok: true, message: "Đã thu hồi tất cả phiên đăng nhập." });
 }

@@ -46,3 +46,25 @@ export async function markNotificationRead(request: Request, response: Response)
 
   response.json({ notification: serializeNotification(notification, request.user?.id) });
 }
+
+// CU-26: Send promotion to all customers
+export async function sendPromotionHandler(request: Request, response: Response) {
+  const body = z
+    .object({
+      title: z.string().min(2),
+      content: z.string().min(2),
+    })
+    .parse(request.body);
+
+  const { notifyPromotion } = await import("../services/notificationTriggers.service.js");
+  await notifyPromotion(body.title, body.content);
+
+  response.json({ ok: true, message: "Đã gửi thông báo khuyến mãi đến tất cả khách hàng." });
+}
+
+// CU-25: Check low balance and notify
+export async function checkLowBalanceHandler(_request: Request, response: Response) {
+  const { checkAndNotifyLowBalances } = await import("../services/notificationTriggers.service.js");
+  const count = await checkAndNotifyLowBalances();
+  response.json({ notified: count, message: `Đã thông báo ${count} khách hàng có số dư thấp.` });
+}

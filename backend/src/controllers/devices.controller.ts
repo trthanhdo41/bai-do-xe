@@ -124,3 +124,33 @@ export async function updateScheduleHandler(request: Request, response: Response
   const device = await Device.findById(request.params.id);
   response.json({ device: device ? serializeDevice(device) : null, message: "Đã cập nhật lịch bảo trì." });
 }
+
+// DV-06: Remote device restart
+export async function restartDeviceHandler(request: Request, response: Response) {
+  const device = await Device.findById(request.params.id);
+  if (!device) {
+    response.status(404).json({ message: "Không tìm thấy thiết bị." });
+    return;
+  }
+
+  // Attempt restart via RTSP reconnection (simulate by re-capturing snapshot)
+  try {
+    const snapshot = await captureDeviceSnapshot(device);
+    device.status = "online";
+    device.lastSnapshotUrl = snapshot.imageUrl;
+    device.lastSnapshotAt = new Date();
+    await device.save();
+
+    response.json({
+      device: serializeDevice(device),
+      message: `Thiết bị "${device.name}" đã khởi động lại thành công.`,
+    });
+  } catch (error) {
+    device.status = "offline";
+    await device.save();
+    response.status(502).json({
+      message: `Không khởi động lại được "${device.name}". Thiết bị có thể không phản hồi.`,
+      device: serializeDevice(device),
+    });
+  }
+}

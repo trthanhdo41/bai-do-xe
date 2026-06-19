@@ -85,6 +85,41 @@ def extract_plate(raw_text: str) -> str:
     return ""
 
 
+def detect_vehicle_type(image: Image.Image) -> str:
+    """
+    AI-03: Detect vehicle type based on image dimensions and contour analysis.
+    Uses aspect ratio heuristic: cars are wider, motorcycles are taller/narrower.
+    """
+    width, height = image.size
+    aspect_ratio = width / height if height > 0 else 1.0
+
+    # Convert to numpy for contour analysis
+    import numpy as np
+    img_array = np.array(image)
+    gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
+    _, thresh = cv2.threshold(gray, 100, 255, cv2.THRESH_BINARY)
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    if not contours:
+        return "Không xác định"
+
+    # Get the largest contour (likely the vehicle)
+    largest = max(contours, key=cv2.contourArea)
+    x, y, w, h = cv2.boundingRect(largest)
+    contour_ratio = w / h if h > 0 else 1.0
+    area_ratio = cv2.contourArea(largest) / (width * height)
+
+    # Heuristic classification
+    if aspect_ratio > 1.3 and contour_ratio > 1.2 and area_ratio > 0.15:
+        return "Ô tô"
+    elif aspect_ratio < 0.9 or contour_ratio < 0.8:
+        return "Xe máy"
+    elif area_ratio > 0.3 and contour_ratio > 1.5:
+        return "Xe tải"
+    else:
+        return "Ô tô"
+
+
 def detect_plate(image_path: Path) -> dict:
     image = Image.open(image_path).convert("RGB")
     best_text = ""
@@ -122,7 +157,7 @@ def detect_plate(image_path: Path) -> dict:
         "plate": best_plate,
         "confidence": best_confidence,
         "rawText": best_text,
-        "vehicleType": "Không xác định",
+        "vehicleType": detect_vehicle_type(image),
         "imageHash": average_hash(image),
     }
 

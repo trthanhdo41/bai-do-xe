@@ -204,3 +204,35 @@ export async function peakHoursHandler(request: Request, response: Response) {
   const data = await getPeakHoursAnalysis(from, to);
   response.json({ data });
 }
+
+// --- RP-06/07/08/09 ---
+import {
+  getEntryByZone,
+  getExitByZone,
+  getPenaltyReport,
+  getWalletReport,
+} from "../services/analytics.service.js";
+
+export async function entryByZoneHandler(request: Request, response: Response) {
+  const { from, to } = getDateRange(request);
+  const data = await getEntryByZone(from, to);
+  response.json({ data });
+}
+
+export async function exitByZoneHandler(request: Request, response: Response) {
+  const { from, to } = getDateRange(request);
+  const data = await getExitByZone(from, to);
+  response.json({ data });
+}
+
+export async function penaltyReportHandler(request: Request, response: Response) {
+  const { from, to } = getDateRange(request);
+  const data = await getPenaltyReport(from, to);
+  response.json({ data });
+}
+
+export async function walletReportHandler(request: Request, response: Response) {
+  const { from, to } = getDateRange(request);
+  const data = await getWalletReport(from, to);
+  response.json({ data });
+}

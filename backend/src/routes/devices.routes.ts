@@ -6,6 +6,7 @@ import {
   healthCheckHandler,
   listDeviceMaintenanceHandler,
   listDevices,
+  restartDeviceHandler,
   snapshotDevice,
   updateDevice,
   updateScheduleHandler,
@@ -23,5 +24,6 @@ devicesRoutes.post("/", requireRole("admin"), asyncHandler(createDevice));
 devicesRoutes.patch("/:id", requireRole("admin"), asyncHandler(updateDevice));
 devicesRoutes.patch("/:id/schedule", requireRole("admin"), asyncHandler(updateScheduleHandler));
 devicesRoutes.post("/:id/snapshot", asyncHandler(snapshotDevice));
+devicesRoutes.post("/:id/restart", requireRole("admin"), asyncHandler(restartDeviceHandler));
 devicesRoutes.get("/:id/maintenance", asyncHandler(listDeviceMaintenanceHandler));
 devicesRoutes.post("/:id/maintenance", requireRole("admin"), asyncHandler(createDeviceMaintenanceHandler));

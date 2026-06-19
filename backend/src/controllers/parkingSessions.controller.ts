@@ -4,6 +4,7 @@ import { parkingConfig } from "../config/parking.js";
 import { Device } from "../models/Device.js";
 import { ParkingSlot } from "../models/ParkingSlot.js";
 import { ParkingSession, ParkingSessionDocument } from "../models/ParkingSession.js";
+import { User } from "../models/User.js";
 import { Vehicle } from "../models/Vehicle.js";
 import { detectVehicleImage } from "../services/ai.service.js";
 import { captureDeviceSnapshot } from "../services/device.service.js";
@@ -26,11 +27,41 @@ async function finalizeCheckout(session: ParkingSessionDocument) {
   session.fee = feeBreakdown.totalFee;
   session.feeBreakdown = feeBreakdown;
 
+  // PM-05: Add overdue fine if applicable
+  if (session.isOverstayed && session.overdueMinutes && session.overdueMinutes > 0) {
+    const { calculateOverdueFine } = await import("../services/overdue.service.js");
+    const overdueResult = calculateOverdueFine(session.checkInAt, session.checkOutAt!, {
+      overdueFineRate: pricing.overdueFineRate,
+      gracePeriod: (pricing as any).gracePeriod ?? 0,
+      freeMinutes: pricing.freeMinutes,
+    });
+    if (overdueResult.fineAmount > 0) {
+      session.fee += overdueResult.fineAmount;
+      (session.feeBreakdown as any).overdueFine = overdueResult.fineAmount;
+    }
+  }
+
   // Apply subscription discount if available
   const discount = await checkSubscriptionDiscount(session.ownerUserId, session.plate);
   if (discount > 0) {
     session.fee = Math.round(session.fee * (1 - discount / 100));
     (session.feeBreakdown as any).subscriptionDiscount = discount;
+  }
+
+  // PM-06: Auto-deduct from wallet if user has sufficient balance
+  if (session.ownerUserId && session.fee > 0) {
+    const owner = await User.findById(session.ownerUserId);
+    if (owner && owner.wallet >= session.fee) {
+      owner.wallet -= session.fee;
+      await owner.save();
+      session.paymentStatus = "paid";
+      session.paymentMethod = "wallet";
+      // CU-25: Check low balance after deduction
+      if (owner.wallet < 20000) {
+        const { notifyLowBalance } = await import("../services/notificationTriggers.service.js");
+        await notifyLowBalance(owner._id.toString(), owner.wallet);
+      }
+    }
   }
 
   await createPendingTransactionForSession(session);
@@ -52,6 +83,17 @@ async function ownerFromPlate(plate: string) {
   return vehicle?.userId;
 }
 
+/**
+ * AI-09: Check for duplicate plate — same plate already active in parking.
+ */
+async function checkDuplicatePlate(plate: string): Promise<boolean> {
+  const existing = await ParkingSession.findOne({
+    plate: plate.toUpperCase(),
+    status: "Đang gửi",
+  });
+  return !!existing;
+}
+
 export async function listParkingSessions(request: Request, response: Response) {
   const criteria = request.user?.role === "customer" ? { ownerUserId: request.user.id } : {};
   const sessions = await ParkingSession.find(criteria).sort({ createdAt: -1 }).limit(100);
@@ -66,6 +108,14 @@ export async function createParkingSession(request: Request, response: Response)
       vehicleType: z.literal("Ô tô").default("Ô tô"),
     })
     .parse(request.body);
+
+  // AI-09: Duplicate plate detection
+  if (await checkDuplicatePlate(body.plate)) {
+    response.status(409).json({
+      message: `Biển số ${body.plate} đang có phiên đỗ xe chưa checkout. Không thể tạo phiên mới.`,
+    });
+    return;
+  }
 
   const slotDoc = await allocateSlot("Ô tô");
   if (!slotDoc) {
@@ -120,6 +170,14 @@ export async function uploadParkingImage(request: Request, response: Response) {
   }
 
   if (action === "entry") {
+    // AI-09: Duplicate plate detection
+    if (await checkDuplicatePlate(detection.plate)) {
+      response.status(409).json({
+        message: `Biển số ${detection.plate} đang có phiên đỗ xe chưa checkout. Không thể tạo phiên mới.`,
+      });
+      return;
+    }
+
     const slotDoc = await allocateSlot("Ô tô");
     if (!slotDoc) {
       response.status(409).json({ message: "Bãi xe đã hết chỗ trống." });
@@ -335,4 +393,33 @@ export async function cameraExit(request: Request, response: Response) {
     matched,
     message: matched ? "Camera checkout thành công." : "Camera checkout không khớp, cần admin duyệt.",
   });
+}
+
+// --- PM-05: Overdue scan + ST-13: Penalty waiver ---
+import { scanAndFlagOverdueSessions, waivePenalty } from "../services/overdue.service.js";
+
+export async function scanOverdueHandler(_request: Request, response: Response) {
+  const flagged = await scanAndFlagOverdueSessions();
+  response.json({ flagged, message: `${flagged} phiên đã được đánh dấu quá hạn.` });
+}
+
+export async function waivePenaltyHandler(request: Request, response: Response) {
+  const body = z.object({ reason: z.string().min(2) }).parse(request.body);
+  await waivePenalty(String(request.params.id), request.user!.id, body.reason);
+  response.json({ ok: true, message: "Đã miễn phạt cho phiên này." });
+}
+
+// --- PM-07: Per-session receipt ---
+import { generateReceiptPdf, getReceiptData } from "../services/receipt.service.js";
+
+export async function getSessionReceiptHandler(request: Request, response: Response) {
+  const data = await getReceiptData(String(request.params.id));
+  response.json({ receipt: data });
+}
+
+export async function downloadSessionReceiptHandler(request: Request, response: Response) {
+  const buffer = await generateReceiptPdf(String(request.params.id));
+  response.setHeader("Content-Type", "application/pdf");
+  response.setHeader("Content-Disposition", `attachment; filename="receipt-${request.params.id}.pdf"`);
+  response.end(buffer);
 }
